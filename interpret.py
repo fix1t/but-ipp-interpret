@@ -206,8 +206,8 @@ class InstructionFactory:
 class Parser:
     # constructor
     def __init__(self):
-        self.source = -1
-        self.input = -1
+        self.source = None
+        self.input = None
         self.instructionNum = 0
         self.list = []
         # check number of arguments
@@ -235,10 +235,10 @@ class Parser:
             print("ERR: Could not open file.")
             exit(IN_FILE_ERR)
         # assign file to stream
-        if(argExploded[0] == '--source' and self.source == -1):
+        if(argExploded[0] == '--source' and self.source == None):
             if(DEVEL):print('[dev]: setting up source filestream ... ')
             self.source = file
-        elif(argExploded[0] == '--input' and self.input == -1): 
+        elif(argExploded[0] == '--input' and self.input == None): 
             if(DEVEL):print('[dev]: setting up input filestream ... ')
             self.input = file
         else:
@@ -254,16 +254,16 @@ class Parser:
             self.parseArgument(sys.argv[2])
         else:
             # if no input/source file is specified, read from stdin
-            if(self.source == -1):
+            if(self.source == None):
                 self.source = sys.stdin
             else:
                 self.input = sys.stdin
         
     def closeStream(self):
-        if(self.input != -1):
+        if(self.input != None):
             if(DEVEL):print('[dev]: closing input filestream ... ')
             self.input.close()
-        if(self.source != -1):
+        if(self.source != None):
             if(DEVEL):print('[dev]: closing source filestream ... ')
             self.source.close()
         
@@ -280,6 +280,7 @@ class Parser:
             print("ERR: Invalid language")
             exit(SEMANTIC_ERR)
     
+#TODO fix element on one line
     # parses XML element (with closing tag) and creates instruction object
     def parseXMLElement(self, element):
         if(DEVEL):print('[dev]: parsing XML element ... ')
@@ -287,16 +288,22 @@ class Parser:
             self.instructionNum += 1
             return self._createInstruction(element.attrib['opcode'])
         elif (element.tag == 'arg1' or element.tag == 'arg2' or element.tag == 'arg3'):
-            # read line until closing tag
-            while element.end == None:
-                line += self.source.readline()
+            if (element.end):
+                return self._createArgument(element)
+            while True:
+                line = self.source.readline()
+                if line.isspace() or not line:
+                    continue
                 if(line == '</arg1>' or line == '</arg2>' or line == '</arg3>'):
                     break
                 else:
-                    # parse line
-                    self.list.append(self.parseLine())
-            self._createArgument()
+                    # line is the body of the argument
+                    return self._createArgument(line)
+        else:  
+            return None
             
+            
+#TODO fix multiple elements on one line            
     # reads line from the source file and parses it
     # returns instruction or argument object or list of instructions and arguments  or none
     # expects correct syntax
@@ -308,6 +315,7 @@ class Parser:
         # if root is list, parse each element 
         # return list of instructions and arguments
         if isinstance(root, list):
+            # multiple elements on one line
             for child in root:
                 self.list.append(self.parseXMLElement(child))
         else:
