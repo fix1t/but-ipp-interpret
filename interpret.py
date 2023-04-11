@@ -1,5 +1,7 @@
 import sys #arguments
+import re #regex
 import xml.etree.ElementTree as ET #xml parsing
+
 
 # source format
 # <?xml version="1.0" encoding="UTF-8"?>
@@ -38,7 +40,18 @@ import xml.etree.ElementTree as ET #xml parsing
 PARAMETER_ERR = 10
 IN_FILE_ERR = 11
 SEMANTIC_ERR = 52
+SYNTAX_ERR = -1
+
+
 DEVEL = 1
+
+class Argument:
+    def __init__(self, type, value):
+        self.type = type
+        self.value = value
+
+    def __repr__(self):
+        return f"<arg#(type='{self.type}', value='{self.value}'>)"
 
 class Instruction():
     argumentList = []
@@ -46,6 +59,9 @@ class Instruction():
         pass
     def addArgument(self,argument):
         self.argumentList.append(argument)
+        
+    def __repr__(self):
+        return "<instruction(opcode=HEHEH arguments='')>"
 
 class MOVE(Instruction):
     def doOperation(self):
@@ -209,7 +225,8 @@ class Parser:
         self.source = None
         self.input = None
         self.instructionNum = 0
-        self.list = []
+        self.rootList = None
+        self.instructionFactory = InstructionFactory()
         # check number of arguments
         if not(len(sys.argv) == 2 or len(sys.argv) == 3):
             print("ERR: Invalid number of arguments")
@@ -237,14 +254,16 @@ class Parser:
         # assign file to stream
         if(argExploded[0] == '--source' and self.source == None):
             if(DEVEL):print('[dev]: setting up source filestream ... ')
-            self.source = file
+            self.source = file.read()
         elif(argExploded[0] == '--input' and self.input == None): 
             if(DEVEL):print('[dev]: setting up input filestream ... ')
-            self.input = file
+            self.input = file.read()
         else:
             print("ERR: Invalid parameter. 1")
             print(argExploded[0])
             exit(PARAMETER_ERR)
+        # close file after reading
+        file.close()
 
     # open input streams for source and input file from the arguments
     def openStream(self):
@@ -255,86 +274,67 @@ class Parser:
         else:
             # if no input/source file is specified, read from stdin
             if(self.source == None):
-                self.source = sys.stdin
+                self.source = sys.stdin.read()
             else:
-                self.input = sys.stdin
+                self.input = sys.stdin.read()
+        # get the whole structure of the XML file
+        self.rootList = ET.fromstring(self.source)
+        if(DEVEL):
+            for root in self.rootList:
+                print(root.tag)
+                if root.findall("./*") is not None:
+                    for child in root.findall('./*'):
+                        print(f"\t child {child.tag}, {child.text}")
         
-    def closeStream(self):
-        if(self.input != None):
-            if(DEVEL):print('[dev]: closing input filestream ... ')
-            self.input.close()
-        if(self.source != None):
-            if(DEVEL):print('[dev]: closing source filestream ... ')
-            self.source.close()
-        
-    # sheds the first lines of the source file until the first instruction is found
-    def start(self):
-        if(DEVEL):print('[dev]: starting ... ')
-        # shed the first lines until program tag is found
-        line = self.source.readline()
-        root = ET.fromstring(line)
-        while root.tag != 'program':
-            line = self.source.readline()
-            root = ET.fromstring(line)
-        if root.attrib['language'] != 'IPPcode23':
-            print("ERR: Invalid language")
-            exit(SEMANTIC_ERR)
-    
-#TODO fix element on one line
-    # parses XML element (with closing tag) and creates instruction object
+    # parses XML element (with closing tag) and creates instruction/argument object
     def parseXMLElement(self, element):
-        if(DEVEL):print('[dev]: parsing XML element ... ')
-        if(element.tag == 'instruction'):
-            self.instructionNum += 1
-            return self._createInstruction(element.attrib['opcode'])
-        elif (element.tag == 'arg1' or element.tag == 'arg2' or element.tag == 'arg3'):
-            if (element.end):
-                return self._createArgument(element)
-            while True:
-                line = self.source.readline()
-                if line.isspace() or not line:
-                    continue
-                if(line == '</arg1>' or line == '</arg2>' or line == '</arg3>'):
-                    break
-                else:
-                    # line is the body of the argument
-                    return self._createArgument(line)
-        else:  
+        attributes = {}
+        if element.tag == 'instruction':
+            attributes["opcode"] = element.attrib['opcode']
+            return ("instruction", attributes)
+        elif element.tag in ['arg1', 'arg2', 'arg3']:
+            attributes["type"] = element.attrib['type']
+            attributes["content"] = element.text
+            return ("argument", attributes)
+        else:
             return None
             
-            
-#TODO fix multiple elements on one line            
-    # reads line from the source file and parses it
-    # returns instruction or argument object or list of instructions and arguments  or none
+    # returns instruction or argument object or none
     # expects correct syntax
-    def parseLine(self):
-        if(DEVEL):print('[dev]: parsing line ... ')
-        
-        line = self.source.readline()
-        root = ET.fromstring(line)
-        # if root is list, parse each element 
-        # return list of instructions and arguments
-        if isinstance(root, list):
-            # multiple elements on one line
-            for child in root:
-                self.list.append(self.parseXMLElement(child))
+    def getInstruction(self):
+        element_data = self.parseXMLElement(self.rootList[self.instructionNum])
+        self.instructionNum += 1
+        if element_data is not None:
+            element_type, element_data = element_data
+            if element_type == "instruction":
+                if(DEVEL):print('[dev]: creating instruction ... ',element_data['opcode'])
+                instruction = self.instructionFactory.createInstruction(element_data['opcode'])
+                return instruction
+            elif element_type == "argument":
+                if(DEVEL):print('[dev]: creating argument ... ',element_data['type'], element_data['content'])
+                argument = Argument(element_data["type"], element_data["content"])
+                return argument
+            else:
+                print("Unknown element encountered:")
         else:
-            return self.parseXMLElement(root)
+            return None
         
 
     def _createInstruction(self, instructionName):
         if(DEVEL):print('[dev]: creating instruction ... ')
+        return self.instructionFactory(instructionName)
+        
 
-    def _createArgument(self, arg1=None, arg2=None, arg3=None):
+    def _createArgument(self, type, value):
         if(DEVEL):print('[dev]: creating Argument ... ')
+        return Argument(type, value)
+        
 
 def main():
     parser = Parser()
-    
     parser.openStream()
-    parser.parseLine()
-    
-    parser.closeStream()
+    i = parser.getInstruction()
+
 
 if __name__ == '__main__':
     main()
