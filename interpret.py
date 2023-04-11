@@ -1,49 +1,73 @@
 import sys #arguments
-import re #regex
 import xml.etree.ElementTree as ET #xml parsing
 
-
-# source format
-# <?xml version="1.0" encoding="UTF-8"?>
-# <program language="IPPcode23">
-#     <instruction order="1" opcode="DEFVAR">
-#         <arg1 type="var">
-#             GF@a
-#         </arg1>
-#     </instruction>
-#     <instruction order="2" opcode="READ">
-#         <arg1 type="var">
-#             GF@a
-#         </arg1>
-#         <arg2 type="type">
-#             int
-#         </arg2>
-#     </instruction>
-#     <instruction order="3" opcode="WRITE">
-#         <arg1 type="var"> 
-#             GF@a
-#         </arg1>
-#     </instruction>
-#     <instruction order="4" opcode="WRITE">
-#         <arg1 type="string"> 
-#             \032&lt;not-tag/&gt;\032
-#         </arg1>
-#     </instruction>
-#     <instruction order="5" opcode="WRITE">
-#         <arg1 type="bool"> 
-#             true
-#         </arg1>
-#     </instruction>
-# </program>
-
-
+SYNTAX_ERR = -1
 PARAMETER_ERR = 10
 IN_FILE_ERR = 11
+XML_SYNTAX_ERR = 31
+XML_SYNTAX_STRUCTURE_ERR = 32
 SEMANTIC_ERR = 52
-SYNTAX_ERR = -1
-
+RUNTIME_OPERAND_TYPE_ERR = 53
+RUNTIME_VARIABLE_ERR = 54
+RUNTIME_FRAME_ERR = 55
+RUNTIME_MISSING_VALUE_ERR = 56
+RUNTIME_DIVISION_BY_ZERO_ERR = 57
+RUNTIME_WRONG_RETURN_VALUE_ERR = 57
+RUNTIME_WRONG_OPERAND_VALUE_ERR = 57
+RUNTIME_STRING_ERR = 58
+RUNTIME_INTERNAL_ERR = 99
 
 DEVEL = 1
+
+class Context:
+    def __init__(self):
+        self.localFrame = []
+        self.globalFrame = []
+        self.temporaryFrame = []
+        
+    def __repr__(self):
+        return f"<context(localFrame={self.localFrame}, globalFrame={self.globalFrame}, temporaryFrame={self.temporaryFrame})>"
+    
+    def createVariable(self,frame,variable):
+        if frame[variable] == None:
+            frame[variable] = None
+            return True
+        else:
+            exit(RUNTIME_VARIABLE_ERR)
+                
+    def updateVariable(self,frame,variable,value):
+        if frame[variable] != None:
+            frame[variable] = value
+            return True
+        else:
+            exit(RUNTIME_VARIABLE_ERR)
+            
+    def getVariable(self,frame,variable):
+        if frame[variable] != None:
+            return frame[variable]
+        else:
+            exit(RUNTIME_VARIABLE_ERR)
+            
+    def createFrame(self):
+        self.temporaryFrame = []
+        
+    def pushFrame(self):
+        self.localFrame = self.temporaryFrame
+        self.temporaryFrame = []
+
+    def popFrame(self):
+        self.temporaryFrame = self.localFrame
+        self.localFrame = []
+        
+    def getFrame(self,frame):
+        if frame == "GF":
+            return self.globalFrame
+        elif frame == "LF":
+            return self.localFrame
+        elif frame == "TF":
+            return self.temporaryFrame
+        else:
+            exit(RUNTIME_FRAME_ERR)
 
 class Argument:
     def __init__(self, type, value):
@@ -54,9 +78,13 @@ class Argument:
         return f"<arg#(type='{self.type}', value='{self.value}'>)"
 
 class Instruction():
-    argumentList = []
+    def __init__(self, context):
+        self.argumentList = []
+        self.context = context
+    
     def doOperation(self):
         pass
+    
     def addArgument(self,argument):
         self.argumentList.append(argument)
         
@@ -157,80 +185,82 @@ class BREAK(Instruction):
 # Factory method for instruction
 # Creates instruction class based on the input
 class InstructionFactory:
+    def __init__(self,context):
+        self.context = context
     def createInstruction(self,instruction):
         if instruction == 'MOVE':
-            return MOVE()
+            return MOVE(self.context)
         elif instruction == 'CREATEFRAME':
-            return CREATEFRAME()
+            return CREATEFRAME(self.context)
         elif instruction == 'PUSHFRAME':
-            return PUSHFRAME()
+            return PUSHFRAME(self.context)
         elif instruction == 'POPFRAME':
-            return POPFRAME()
+            return POPFRAME(self.context)
         elif instruction == 'DEFVAR':
-            return DEFVAR()
+            return DEFVAR(self.context)
         elif instruction == 'CALL':
-            return CALL()
+            return CALL(self.context)
         elif instruction == 'RETURN':
-            return RETURN()
+            return RETURN(self.context)
         elif instruction == 'PUSHS':
-            return PUSHS()
+            return PUSHS(self.context)
         elif instruction == 'POPS':
-            return POPS()
+            return POPS(self.context)
         elif instruction == 'ADD':
-            return ADD()
+            return ADD(self.context)
         elif instruction == 'SUB':
-            return SUB()
+            return SUB(self.context)
         elif instruction == 'MUL':
-            return MUL()
+            return MUL(self.context)
         elif instruction == 'IDIV':
-            return IDIV()
+            return IDIV(self.context)
         elif instruction == 'LT':
-            return LT()
+            return LT(self.context)
         elif instruction == 'GT':
-            return GT()
+            return GT(self.context)
         elif instruction == 'EQE':
-            return EQE()
+            return EQE(self.context)
         elif instruction == 'AND':
-            return AND()
+            return AND(self.context)
         elif instruction == 'OR':
-            return OR()
+            return OR(self.context)
         elif instruction == 'NOT':
-            return NOT()
+            return NOT(self.context)
         elif instruction == 'INT2CHAR':
-            return INT2CHAR()
+            return INT2CHAR(self.context)
         elif instruction == 'STRI2INT':
-            return STRI2INT()
+            return STRI2INT(self.context)
         elif instruction == 'READ':
-            return READ()
+            return READ(self.context)
         elif instruction == 'WRITE':
-            return WRITE()
+            return WRITE(self.context)
         elif instruction == 'LABEL':
-            return LABEL()
+            return LABEL(self.context)
         elif instruction == 'JUMP':
-            return JUMP()
+            return JUMP(self.context)
         elif instruction == 'JUMPIFEQ':
-            return JUMPIFEQ()
+            return JUMPIFEQ(self.context)
         elif instruction == 'JUMPIFNEQ':
-            return JUMPIFNEQ()
+            return JUMPIFNEQ(self.context)
         elif instruction == 'EXIT':
-            return EXIT()
+            return EXIT(self.context)
         elif instruction == 'DRPINT':
-            return DRPINT()
+            return DRPINT(self.context)
         elif instruction == 'BREAK':
-            return BREAK()
+            return BREAK(self.context)
 
 class Parser:
     # constructor
     def __init__(self):
-        self.source = None
-        self.input = None
-        self.instructionNum = 0
-        self.rootList = None
-        self.instructionFactory = InstructionFactory()
         # check number of arguments
         if not(len(sys.argv) == 2 or len(sys.argv) == 3):
             print("ERR: Invalid number of arguments")
             exit(PARAMETER_ERR)
+        self.source = None
+        self.input = None
+        self.rootList = None # list of root elements(Instructions)
+        self.instructionNum = 0 
+        self.instructionFactory = InstructionFactory(Context())
 
     # print usage
     def usage(self):
@@ -251,6 +281,7 @@ class Parser:
         except FileNotFoundError:
             print("ERR: Could not open file.")
             exit(IN_FILE_ERR)
+            
         # assign file to stream
         if(argExploded[0] == '--source' and self.source == None):
             if(DEVEL):print('[dev]: setting up source filestream ... ')
@@ -278,13 +309,11 @@ class Parser:
             else:
                 self.input = sys.stdin.read()
         # get the whole structure of the XML file
-        self.rootList = ET.fromstring(self.source)
-        if(DEVEL):
-            for root in self.rootList:
-                print(root.tag)
-                if root.findall("./*") is not None:
-                    for child in root.findall('./*'):
-                        print(f"\t child {child.tag}, {child.text}")
+        try:
+            self.rootList = ET.fromstring(self.source)
+        except ET.ParseError as e:
+            print(f"Error parsing well-formed XML: {e}")
+            exit(XML_SYNTAX_ERR)
         
     # parses XML element (with closing tag) and creates instruction/argument object
     def parseXMLElement(self, element):
@@ -299,23 +328,40 @@ class Parser:
         else:
             return None
             
+    def getArguments(self,rootElement,instruction):
+        if rootElement.findall("./*") is not None:
+            for child in rootElement.findall('./*'):
+                element_data = self.parseXMLElement(child)
+                if element_data is not None:
+                    element_type, element_data = element_data
+                    if element_type == "argument":
+                        if(DEVEL):print('[dev]: creating argument ... ',element_data['type'], element_data['content'])
+                        argument = Argument(element_data["type"], element_data["content"])
+                        print(argument)
+                        instruction.addArgument(argument)
+                    else:
+                        exit(XML_SYNTAX_ERR)
+    
     # returns instruction or argument object or none
     # expects correct syntax
     def getInstruction(self):
-        element_data = self.parseXMLElement(self.rootList[self.instructionNum])
-        self.instructionNum += 1
-        if element_data is not None:
-            element_type, element_data = element_data
+        if self.instructionNum >= len(self.rootList):
+            return None
+        #parse element
+        rootElement = self.rootList[self.instructionNum]
+        elementData = self.parseXMLElement(rootElement)
+        
+        #root must be instruction
+        if elementData is not None:
+            element_type, elementData = elementData
             if element_type == "instruction":
-                if(DEVEL):print('[dev]: creating instruction ... ',element_data['opcode'])
-                instruction = self.instructionFactory.createInstruction(element_data['opcode'])
+                if(DEVEL):print('[dev]: creating instruction ... ',elementData['opcode'])
+                instruction = self.instructionFactory.createInstruction(elementData['opcode'])
+                self.getArguments(rootElement,instruction)
+                self.instructionNum += 1
                 return instruction
-            elif element_type == "argument":
-                if(DEVEL):print('[dev]: creating argument ... ',element_data['type'], element_data['content'])
-                argument = Argument(element_data["type"], element_data["content"])
-                return argument
             else:
-                print("Unknown element encountered:")
+                print("Unknown root element encountered:")
         else:
             return None
         
@@ -331,9 +377,15 @@ class Parser:
         
 
 def main():
+    context = Context()
     parser = Parser()
     parser.openStream()
-    i = parser.getInstruction()
+    while True:
+        instruction = parser.getInstruction()
+        if instruction is None:
+            break
+        print(instruction)
+
 
 
 if __name__ == '__main__':
