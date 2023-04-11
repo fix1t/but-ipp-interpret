@@ -326,49 +326,46 @@ class Parser:
             attributes["content"] = element.text
             return ("argument", attributes)
         else:
-            return None
+            exit(XML_SYNTAX_ERR)
             
-    def getArguments(self,rootElement,instruction):
-        if rootElement.findall("./*") is not None:
-            for child in rootElement.findall('./*'):
-                element_data = self.parseXMLElement(child)
-                if element_data is not None:
-                    element_type, element_data = element_data
-                    if element_type == "argument":
-                        if(DEVEL):print('[dev]: creating argument ... ',element_data['type'], element_data['content'])
-                        argument = Argument(element_data["type"], element_data["content"])
-                        print(argument)
-                        instruction.addArgument(argument)
-                    else:
-                        exit(XML_SYNTAX_ERR)
+    # gets every argument (child element) from the instruction (root) element and adds them to the instruction
+    def getArguments(self,instructionElement,instructionInstance):
+        if instructionElement.findall("./*") is not None:
+            for argument in instructionElement.findall('./*'):
+                element_data = self.parseXMLElement(argument)
+                element_type, element_data = element_data
+                if element_type == "argument":
+                    # create argument object
+                    argument = self._createArgument(element_data["type"], element_data["content"])
+                    instructionInstance.addArgument(argument)
+                else:
+                    exit(XML_SYNTAX_ERR)
     
     # returns instruction or argument object or none
     # expects correct syntax
     def getInstruction(self):
         if self.instructionNum >= len(self.rootList):
             return None
-        #parse element
+        #parse XML element
         rootElement = self.rootList[self.instructionNum]
         elementData = self.parseXMLElement(rootElement)
         
         #root must be instruction
-        if elementData is not None:
-            element_type, elementData = elementData
-            if element_type == "instruction":
-                if(DEVEL):print('[dev]: creating instruction ... ',elementData['opcode'])
-                instruction = self.instructionFactory.createInstruction(elementData['opcode'])
-                self.getArguments(rootElement,instruction)
-                self.instructionNum += 1
-                return instruction
-            else:
-                print("Unknown root element encountered:")
+        element_type, elementData = elementData
+        if element_type == "instruction":
+            instruction = self._createInstruction(elementData['opcode'])
+            # get arguments
+            self.getArguments(rootElement,instruction)
+            return instruction
         else:
-            return None
+            print("ERR: Unknown root element encountered:")
+            exit(XML_SYNTAX_ERR)
         
 
-    def _createInstruction(self, instructionName):
+    def _createInstruction(self, instruction):
         if(DEVEL):print('[dev]: creating instruction ... ')
-        return self.instructionFactory(instructionName)
+        self.instructionNum += 1
+        return self.instructionFactory.createInstruction(instruction)
         
 
     def _createArgument(self, type, value):
@@ -377,16 +374,12 @@ class Parser:
         
 
 def main():
-    context = Context()
     parser = Parser()
     parser.openStream()
     while True:
         instruction = parser.getInstruction()
         if instruction is None:
             break
-        print(instruction)
-
-
 
 if __name__ == '__main__':
     main()
