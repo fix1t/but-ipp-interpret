@@ -19,16 +19,26 @@ RUNTIME_INTERNAL_ERR = 99
 
 EMPTY = ""
 
-DEVEL = 1
+DEVEL = 0
 
 class Context:
     def __init__(self):
         self.localFrame = {}
         self.globalFrame = {}
         self.temporaryFrame = {}
+        self.stack = []
         
     def __repr__(self):
         return f"<context(localFrame={self.localFrame}, globalFrame={self.globalFrame}, temporaryFrame={self.temporaryFrame})>"
+    
+    def pushStack(self,value):
+        self.stack.append(value)
+        
+    def popStack(self):
+        if len(self.stack) == 0:
+            if(DEVEL == 1): print(f"[dev]: Stack is empty")
+            exit(RUNTIME_MISSING_VALUE_ERR)
+        return self.stack.pop()
     
     def splitVariable(self,variable):
         if variable[0] == "G" and variable[1] == "F":
@@ -164,10 +174,21 @@ class RETURN(Instruction):
         pass
 class PUSHS(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(1)
+        if self.argumentList["arg1"].type == "var":
+            varValue = self.context.getVariablesValue(self.argumentList["arg1"].value)
+            self.context.pushStack(varValue)
+        else:
+            self.context.pushStack(self.argumentList["arg1"].value)
+        
 class POPS(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(1)
+        var = self.argumentList["arg1"]
+        if var.type == "var" and self.context.isDefined(var.value):
+            poppedValue = self.context.popStack()
+            self.context.updateVariable(var.value, poppedValue)
+        
 class ADD(Instruction):
     def doOperation(self):
         pass
@@ -200,7 +221,24 @@ class NOT(Instruction):
         pass
 class INT2CHAR(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(2)
+        var = self.argumentList["arg1"]
+        symbol = self.argumentList["arg2"]
+        # confirm that first argument is variable
+        if var.type == "var" and self.context.isDefined(var.value):
+            # if second argument is variable, get its value
+            if symbol.type == "var" and self.context.isDefined(symbol.value):
+                value = self.context.getVariablesValue(symbol.value)
+            else:
+                value = symbol.value
+            try:
+                value = int(value)
+                self.context.updateVariable(var.value, chr(value))
+            except :
+                exit(RUNTIME_WRONG_OPERAND_VALUE_ERR)
+        else:
+            exit(RUNTIME_WRONG_OPERAND_VALUE_ERR)
+        
 class STRI2INT(Instruction):
     def doOperation(self):
         pass
@@ -260,9 +298,9 @@ class EXIT(Instruction):
             exit(int(self.argumentList["arg1"].value))
         else:
             exit(RUNTIME_WRONG_OPERAND_VALUE_ERR)
-class DRPINT(Instruction):
+class DPRINT(Instruction):
     def doOperation(self):
-        pass
+        print(self.argumentList["arg1"].value, end='',file=sys.stderr)
 class BREAK(Instruction):
     def doOperation(self):
         pass
@@ -304,6 +342,7 @@ class InstructionFactory:
         return self.input
     
     def createInstruction(self,instruction):
+        instruction = instruction.upper()
         if instruction == 'MOVE':
             return MOVE(self.context)
         elif instruction == 'CREATEFRAME':
@@ -360,8 +399,8 @@ class InstructionFactory:
             return JUMPIFNEQ(self.context)
         elif instruction == 'EXIT':
             return EXIT(self.context)
-        elif instruction == 'DRPINT':
-            return DRPINT(self.context)
+        elif instruction == 'DPRINT':
+            return DPRINT(self.context)
         elif instruction == 'BREAK':
             return BREAK(self.context)
         elif instruction == 'TYPE':
