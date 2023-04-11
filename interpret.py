@@ -1,5 +1,6 @@
 import sys #arguments
 import xml.etree.ElementTree as ET #xml parsing
+import ast
 
 SYNTAX_ERR = -1
 PARAMETER_ERR = 10
@@ -7,6 +8,8 @@ IN_FILE_ERR = 11
 XML_SYNTAX_ERR = 31
 XML_SYNTAX_STRUCTURE_ERR = 32
 SEMANTIC_ERR = 52
+MULTIPLE_DEFINITION_ERR = 52
+LABEL_ERR = 52
 RUNTIME_OPERAND_TYPE_ERR = 53
 RUNTIME_VARIABLE_ERR = 54
 RUNTIME_FRAME_ERR = 55
@@ -26,10 +29,39 @@ class Context:
         self.localFrame = {}
         self.globalFrame = {}
         self.temporaryFrame = {}
+        self.labels = {}
         self.stack = []
+        self.instructionIndex = 0 
+        self.parser = None
         
     def __repr__(self):
         return f"<context(localFrame={self.localFrame}, globalFrame={self.globalFrame}, temporaryFrame={self.temporaryFrame})>"
+    
+    def setParser(self, parser):
+        self.parser = parser
+    
+    def getInstructionIndex(self):
+        return self.instructionIndex
+    
+    def incrementInstructionIndex(self):
+        self.instructionIndex += 1
+    
+    def setInstructionIndex(self, index):
+        self.instructionIndex = index
+    
+    def addLabel(self,label,position):
+        if label not in self.labels:
+            self.labels[label] = position
+        else:
+            if(DEVEL == 1): print(f"[dev]: Label {label} is already defined")
+            exit(MULTIPLE_DEFINITION_ERR)
+            
+    def getLabelPosition(self,label):
+        if label in self.labels:
+            return self.labels[label]
+        else:
+            if(DEVEL == 1): print(f"[dev]: Label {label} is not defined")
+            return None
     
     def pushStack(self,value):
         self.stack.append(value)
@@ -131,7 +163,7 @@ class Instruction():
         
     def checkNumberofArguments(self, number):
         if len(self.argumentList) != number:
-            exit(SYNTAX_ERR)
+            exit(XML_SYNTAX_STRUCTURE_ERR)
     
     def doOperation(self):
         pass
@@ -140,7 +172,7 @@ class Instruction():
         self.argumentList[argument.tag] =argument
         
     def __repr__(self):
-        return f"<instruction({type(self)})>"
+        return f"<instruction({type(self).__name__})>"
 
 class MOVE(Instruction):
     def doOperation(self):
@@ -277,14 +309,40 @@ class WRITE(Instruction):
             else:
                 print("false", end='')
         else:
-            print(self.argumentList["arg1"].value, end='')
+            text = self.argumentList["arg1"].value
+            print(text, end='')
+            
+
+            # Use literal_eval to interpret the escape sequence
             
 class LABEL(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(1)
+        self.context.addLabel(str(self.argumentList["arg1"].value), self.context.getInstructionIndex())
+        
 class JUMP(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(1)
+        expectedLabel = self.argumentList["arg1"].value
+        position = self.context.getLabelPosition(expectedLabel)
+        # look for label in instructions
+        if position == None:
+            while self.context.getInstructionIndex() < len(self.context.parser.rootList):
+                # if any label is found, add it to labels
+                instruction = self.context.parser.getInstruction()
+                if  type(instruction).__name__ == "LABEL":
+                    # create label
+                    instruction.doOperation()
+                    position = self.context.getLabelPosition(expectedLabel)
+                    # check if label is found
+                    if position != None:
+                        return self.context.setInstructionIndex(position)
+            # if label is not found, exit with error
+            if (DEVEL): print("Label not found")
+            exit(LABEL_ERR)
+        else:
+            self.context.setInstructionIndex(position)
+        
 class JUMPIFEQ(Instruction):
     def doOperation(self):
         pass
@@ -331,7 +389,7 @@ class TYPE(Instruction):
 # Factory method for instruction
 # Creates instruction class based on the input
 class InstructionFactory:
-    def __init__(self,context):
+    def __init__(self, parser,context):
         self.input = None
         self.context = context
         
@@ -407,11 +465,11 @@ class InstructionFactory:
             return TYPE(self.context)
         else:
             print("ERR: Instruction not found")
-            exit(SYNTAX_ERR)
+            exit(XML_SYNTAX_STRUCTURE_ERR)
 
 class Parser:
     # constructor
-    def __init__(self):
+    def __init__(self,context):
         # check number of arguments
         if not(len(sys.argv) == 2 or len(sys.argv) == 3):
             print("ERR: Invalid number of arguments")
@@ -419,9 +477,9 @@ class Parser:
         self.source = None
         self.input = None
         self.rootList = None # list of root elements(Instructions)
-        self.instructionNum = 0 
+        self.context = context
         self.lastInstructionnumber = 0 # order number of tha latest instruction to catch duplicits
-        self.instructionFactory = InstructionFactory(Context())
+        self.instructionFactory = InstructionFactory(self, context)
 
     # print usage
     def usage(self):
@@ -497,7 +555,7 @@ class Parser:
             attributes["content"] = element.text
             return ("argument", attributes)
         else:
-            exit(XML_SYNTAX_ERR)
+            exit(XML_SYNTAX_STRUCTURE_ERR)
             
     # gets every argument (child element) from the instruction (root) element and adds them to the instruction
     def getArguments(self,instructionElement,instructionInstance):
@@ -515,11 +573,11 @@ class Parser:
     # returns instruction or argument object or none
     # expects correct syntax
     def getInstruction(self):
-        if self.instructionNum >= len(self.rootList):
+        if self.context.getInstructionIndex() >= len(self.rootList):
             return None
         
         #parse XML element
-        rootElement = self.rootList[self.instructionNum]
+        rootElement = self.rootList[self.context.getInstructionIndex()]
         elementData = self.parseXMLElement(rootElement)
         
         #root must be instruction
@@ -538,7 +596,7 @@ class Parser:
     # checks if the order of the instructions is correct
     def _createInstruction(self, instructiontData):
         if(DEVEL):print(f'[dev]: creating instruction {instructiontData["opcode"]} ... ')
-        self.instructionNum += 1
+        self.context.incrementInstructionIndex()
         # check if the order of the instructions is correct and if there are no duplicit orders
         if self.lastInstructionnumber >= int(instructiontData['order']):
             print("ERR: Invalid order of instructions")
@@ -556,7 +614,9 @@ class Parser:
         
 
 def main():
-    parser = Parser()
+    context = Context()
+    parser = Parser(context)
+    context.setParser(parser)
     parser.openStream()
     while True:
         instruction = parser.getInstruction()
