@@ -17,35 +17,65 @@ RUNTIME_WRONG_OPERAND_VALUE_ERR = 57
 RUNTIME_STRING_ERR = 58
 RUNTIME_INTERNAL_ERR = 99
 
+EMPTY = ""
+
 DEVEL = 0
 
 class Context:
     def __init__(self):
-        self.localFrame = []
-        self.globalFrame = []
-        self.temporaryFrame = []
+        self.localFrame = {}
+        self.globalFrame = {}
+        self.temporaryFrame = {}
         
     def __repr__(self):
         return f"<context(localFrame={self.localFrame}, globalFrame={self.globalFrame}, temporaryFrame={self.temporaryFrame})>"
     
-    def createVariable(self,frame,variable):
-        if frame[variable] == None:
-            frame[variable] = None
+    def splitVariable(self,variable):
+        if variable[0] == "G" and variable[1] == "F":
+            return "GF", variable[3:]
+        elif variable[0] == "L" and variable[1] == "F":
+            return "LF", variable[3:]
+        elif variable[0] == "T" and variable[1] == "F":
+            return "TF", variable[3:]
+        else:
+            if(DEVEL == 1): print(f"[dev]: Variable {variable} is not defined")
+            exit(RUNTIME_VARIABLE_ERR)
+        
+    def isDefined(self,variable):
+        frame , variable = self.splitVariable(variable)
+        frame = self.getFrame(frame)
+        if variable in frame:
             return True
         else:
+            return False
+    
+    def createVariable(self,variable):
+        # check if variable is already defined
+        if self.isDefined(variable) == False:
+            frame , variable = self.splitVariable(variable)
+            frame = self.getFrame(frame)
+            frame[variable] = EMPTY
+        else:
+            if(DEVEL == 1): print(f"[dev]: Variable {variable} is not defined 1")
             exit(RUNTIME_VARIABLE_ERR)
                 
-    def updateVariable(self,frame,variable,value):
-        if frame[variable] != None:
+    def updateVariable(self,variable,value):
+        if self.isDefined(variable):
+            frame , variable = self.splitVariable(variable)
+            frame = self.getFrame(frame)
             frame[variable] = value
             return True
         else:
+            if(DEVEL == 1): print(f"[dev]: Variable {variable} is not defined 2")
             exit(RUNTIME_VARIABLE_ERR)
             
-    def getVariable(self,frame,variable):
-        if frame[variable] != None:
+    def getVariablesValue(self,variable):
+        if self.isDefined(variable):
+            frame , variable = self.splitVariable(variable)
+            frame = self.getFrame(frame)
             return frame[variable]
         else:
+            if(DEVEL == 1): print(f"[dev]: Variable {variable} is not defined 3")
             exit(RUNTIME_VARIABLE_ERR)
             
     def createFrame(self):
@@ -83,9 +113,14 @@ class Argument:
         return f"<arg#(type='{self.type}', value='{self.value}'>)"
 
 class Instruction():
-    def __init__(self, context):
+    def __init__(self, context, input=None):
         self.argumentList = []
         self.context = context
+        self.input = input
+        
+    def checkNumberofArguments(self, number):
+        if len(self.argumentList) != number:
+            exit(SYNTAX_ERR)
     
     def doOperation(self):
         pass
@@ -94,11 +129,13 @@ class Instruction():
         self.argumentList.append(argument)
         
     def __repr__(self):
-        return "<instruction(opcode=HEHEH arguments='')>"
+        return f"<instruction({type(self)})>"
 
 class MOVE(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(2)
+        self.context.updateVariable(self.argumentList[0].value,self.argumentList[1].value)
+        
 class CREATEFRAME(Instruction):
     def doOperation(self):
         pass
@@ -110,7 +147,8 @@ class POPFRAME(Instruction):
         pass
 class DEFVAR(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(1)
+        self.context.createVariable(self.argumentList[0].value)
 class CALL(Instruction):
     def doOperation(self):
         pass
@@ -161,15 +199,33 @@ class STRI2INT(Instruction):
         pass
 class READ(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(2)
+        var = self.argumentList[0].value
+        wantedType = self.argumentList[1].value
+        # read line from input
+        line = self.input.readline()
+        line = line.rstrip('\n')
+        # convert to wanted type
+        if wantedType == "bool":
+            if line.lower == "true":
+                line = "true"
+            elif line.lower == "false":
+                line = "false"
+        elif wantedType == "int":
+            line = int(line)
+        elif wantedType == "string":
+            pass
+        self.context.updateVariable(self.argumentList[0].value, line)
+    
 class WRITE(Instruction):
     def doOperation(self):
-        if len(self.argumentList) != 1:
-            exit(PARAMETER_ERR)
-        elif self.argumentList[0].type == "var":
-            print(self.context.getVariable(self.argumentList[0].value, end=''))
+        self.checkNumberofArguments(1)
+        if self.argumentList[0].type == "var":
+            print(self.context.getVariablesValue(self.argumentList[0].value), end='')
+            
         elif self.argumentList[0].type == "nil":
             pass #TODO
+        
         elif self.argumentList[0].type == "bool":
             if (self.argumentList[0].type == "true"):
                 print("true", end='')
@@ -192,19 +248,54 @@ class JUMPIFNEQ(Instruction):
         pass
 class EXIT(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(1)
+        if self.argumentList[0].type == "int" and int(self.argumentList[0].value) < 50:
+            exit(int(self.argumentList[0].value))
+        else:
+            exit(RUNTIME_WRONG_OPERAND_VALUE_ERR)
 class DRPINT(Instruction):
     def doOperation(self):
         pass
 class BREAK(Instruction):
     def doOperation(self):
         pass
+class TYPE(Instruction):
+    def doOperation(self):
+        self.checkNumberofArguments(2)
+        var = self.argumentList[0]
+        symb = self.argumentList[1]
+        # first argument must be variable
+        if var.type == "var":
+            # if symbol is variable
+            if symb.type == "var":
+                # not initialized variable
+                if self.context.getVariablesValue(symb.value) == "":
+                    return self.context.updateVariable(var.value, "")
+                # initialized variable, get its type
+                else:
+                    dataType = type(symb.value).__name__
+                    if(dataType == "str"):
+                        dataType = "string"
+                    return self.context.updateVariable(var.value, dataType)
+            else:
+                return self.context.updateVariable(var.value, symb.type)
+        else:
+            exit(RUNTIME_WRONG_OPERAND_VALUE_ERR)
+                  
 
 # Factory method for instruction
 # Creates instruction class based on the input
 class InstructionFactory:
     def __init__(self,context):
+        self.input = None
         self.context = context
+        
+    def setInput(self,input):
+        self.input = input
+    
+    def getInput(self):
+        return self.input
+    
     def createInstruction(self,instruction):
         if instruction == 'MOVE':
             return MOVE(self.context)
@@ -249,7 +340,7 @@ class InstructionFactory:
         elif instruction == 'STRI2INT':
             return STRI2INT(self.context)
         elif instruction == 'READ':
-            return READ(self.context)
+            return READ(self.context, self.getInput())
         elif instruction == 'WRITE':
             return WRITE(self.context)
         elif instruction == 'LABEL':
@@ -266,6 +357,8 @@ class InstructionFactory:
             return DRPINT(self.context)
         elif instruction == 'BREAK':
             return BREAK(self.context)
+        elif instruction == 'TYPE':
+            return TYPE(self.context)
         else:
             print("ERR: Instruction not found")
             exit(SYNTAX_ERR)
@@ -309,15 +402,15 @@ class Parser:
         if(argExploded[0] == '--source' and self.source == None):
             if(DEVEL):print('[dev]: setting up source filestream ... ')
             self.source = file.read()
+            file.close()
         elif(argExploded[0] == '--input' and self.input == None): 
             if(DEVEL):print('[dev]: setting up input filestream ... ')
-            self.input = file.read()
+            self.input = file
         else:
             print("ERR: Invalid parameter. 1")
             print(argExploded[0])
             exit(PARAMETER_ERR)
         # close file after reading
-        file.close()
 
     # open input streams for source and input file from the arguments
     def openStream(self):
@@ -330,7 +423,7 @@ class Parser:
             if(self.source == None):
                 self.source = sys.stdin.read()
             else:
-                self.input = sys.stdin.read()
+                self.input = sys.stdin.open()
         # get the whole structure of the XML file
         try:
             self.rootList = ET.fromstring(self.source)
@@ -338,8 +431,12 @@ class Parser:
             print(f"Error parsing well-formed XML: {e}")
             exit(XML_SYNTAX_ERR)
         
+        self.instructionFactory.setInput(self.input)
         #order the instructions by their order attribute
         self.rootList = sorted(self.rootList, key=lambda child: int(child.attrib['order']))
+        
+    def closeStream(self):
+        self.input.close()
         
     # parses XML element (with closing tag) and creates instruction/argument object
     def parseXMLElement(self, element):
@@ -393,7 +490,7 @@ class Parser:
     # creates instruction object
     # checks if the order of the instructions is correct
     def _createInstruction(self, instructiontData):
-        if(DEVEL):print('[dev]: creating instruction ... ')
+        if(DEVEL):print(f'[dev]: creating instruction {instructiontData["opcode"]} ... ')
         self.instructionNum += 1
         # check if the order of the instructions is correct and if there are no duplicit orders
         if self.lastInstructionnumber >= int(instructiontData['order']):
@@ -407,7 +504,7 @@ class Parser:
 
     # creates argument object
     def _createArgument(self, type, value):
-        if(DEVEL):print('[dev]: creating Argument ... ')
+        if(DEVEL):print('[dev]: \t\tcreating Argument ... ')
         return Argument(type, value)
         
 
@@ -419,6 +516,10 @@ def main():
         if instruction is None:
             break
         instruction.doOperation()
+        
+    parser.closeStream()
+    return 0
 
 if __name__ == '__main__':
     main()
+    
