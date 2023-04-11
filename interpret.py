@@ -19,7 +19,7 @@ RUNTIME_INTERNAL_ERR = 99
 
 EMPTY = ""
 
-DEVEL = 0
+DEVEL = 1
 
 class Context:
     def __init__(self):
@@ -100,12 +100,13 @@ class Context:
             exit(RUNTIME_FRAME_ERR)
 
 class Argument:
-    def __init__(self, type, value):
+    def __init__(self, tag, type, value):
         if(type != "var" and type != "symb" and type != "label" and type != "type" and\
             type != "nil" and type != "bool" and type != "int" and type != "string" and\
                 type != "float" and type != "LF" and type != "GF" and type != "TF"):
             exit(PARAMETER_ERR)
-        if(DEVEL == 1): print(f"[dev]: Argument created: {type} {value}")
+        if(DEVEL == 1): print(f"[dev]: Argument created:{tag} {type} {value}")
+        self.tag = tag
         self.type = type
         self.value = value
 
@@ -114,7 +115,7 @@ class Argument:
 
 class Instruction():
     def __init__(self, context, input=None):
-        self.argumentList = []
+        self.argumentList = {}
         self.context = context
         self.input = input
         
@@ -126,7 +127,7 @@ class Instruction():
         pass
     
     def addArgument(self,argument):
-        self.argumentList.append(argument)
+        self.argumentList[argument.tag] =argument
         
     def __repr__(self):
         return f"<instruction({type(self)})>"
@@ -134,7 +135,13 @@ class Instruction():
 class MOVE(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(2)
-        self.context.updateVariable(self.argumentList[0].value,self.argumentList[1].value)
+        variable = self.argumentList["arg1"]
+        symbol = self.argumentList["arg2"]
+        if symbol.type == "var":
+            varValue = self.context.getVariablesValue(symbol.value)
+            self.context.updateVariable(variable.value, varValue)
+        else:
+            self.context.updateVariable(variable.value,symbol.value)
         
 class CREATEFRAME(Instruction):
     def doOperation(self):
@@ -148,7 +155,7 @@ class POPFRAME(Instruction):
 class DEFVAR(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(1)
-        self.context.createVariable(self.argumentList[0].value)
+        self.context.createVariable(self.argumentList["arg1"].value)
 class CALL(Instruction):
     def doOperation(self):
         pass
@@ -200,8 +207,8 @@ class STRI2INT(Instruction):
 class READ(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(2)
-        var = self.argumentList[0].value
-        wantedType = self.argumentList[1].value
+        var = self.argumentList["arg1"].value
+        wantedType = self.argumentList["arg2"].value
         # read line from input
         line = self.input.readline()
         line = line.rstrip('\n')
@@ -215,24 +222,24 @@ class READ(Instruction):
             line = int(line)
         elif wantedType == "string":
             pass
-        self.context.updateVariable(self.argumentList[0].value, line)
+        self.context.updateVariable(self.argumentList["arg1"].value, line)
     
 class WRITE(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(1)
-        if self.argumentList[0].type == "var":
-            print(self.context.getVariablesValue(self.argumentList[0].value), end='')
+        if self.argumentList["arg1"].type == "var":
+            print(self.context.getVariablesValue(self.argumentList["arg1"].value), end='')
             
-        elif self.argumentList[0].type == "nil":
+        elif self.argumentList["arg1"].type == "nil":
             pass #TODO
         
-        elif self.argumentList[0].type == "bool":
-            if (self.argumentList[0].type == "true"):
+        elif self.argumentList["arg1"].type == "bool":
+            if (self.argumentList["arg1"].type == "true"):
                 print("true", end='')
             else:
                 print("false", end='')
         else:
-            print(self.argumentList[0].value, end='')
+            print(self.argumentList["arg1"].value, end='')
             
 class LABEL(Instruction):
     def doOperation(self):
@@ -249,8 +256,8 @@ class JUMPIFNEQ(Instruction):
 class EXIT(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(1)
-        if self.argumentList[0].type == "int" and int(self.argumentList[0].value) < 50:
-            exit(int(self.argumentList[0].value))
+        if self.argumentList["arg1"].type == "int" and int(self.argumentList["arg1"].value) < 50:
+            exit(int(self.argumentList["arg1"].value))
         else:
             exit(RUNTIME_WRONG_OPERAND_VALUE_ERR)
 class DRPINT(Instruction):
@@ -262,8 +269,8 @@ class BREAK(Instruction):
 class TYPE(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(2)
-        var = self.argumentList[0]
-        symb = self.argumentList[1]
+        var = self.argumentList["arg1"]
+        symb = self.argumentList["arg2"]
         # first argument must be variable
         if var.type == "var":
             # if symbol is variable
@@ -446,6 +453,7 @@ class Parser:
             attributes["order"] = element.attrib['order']
             return ("instruction", attributes)
         elif element.tag in ['arg1', 'arg2', 'arg3']:
+            attributes["tag"] = element.tag 
             attributes["type"] = element.attrib['type']
             attributes["content"] = element.text
             return ("argument", attributes)
@@ -460,7 +468,7 @@ class Parser:
                 element_type, element_data = element_data
                 if element_type == "argument":
                     # create argument object
-                    argument = self._createArgument(element_data["type"], element_data["content"])
+                    argument = self._createArgument(element_data["tag"],element_data["type"], element_data["content"])
                     instructionInstance.addArgument(argument)
                 else:
                     exit(XML_SYNTAX_ERR)
@@ -503,9 +511,9 @@ class Parser:
         
 
     # creates argument object
-    def _createArgument(self, type, value):
+    def _createArgument(self, tag, type, value):
         if(DEVEL):print('[dev]: \t\tcreating Argument ... ')
-        return Argument(type, value)
+        return Argument(tag, type, value)
         
 
 def main():
