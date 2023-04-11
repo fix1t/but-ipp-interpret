@@ -17,7 +17,7 @@ RUNTIME_WRONG_OPERAND_VALUE_ERR = 57
 RUNTIME_STRING_ERR = 58
 RUNTIME_INTERNAL_ERR = 99
 
-DEVEL = 1
+DEVEL = 0
 
 class Context:
     def __init__(self):
@@ -71,6 +71,11 @@ class Context:
 
 class Argument:
     def __init__(self, type, value):
+        if(type != "var" and type != "symb" and type != "label" and type != "type" and\
+            type != "nil" and type != "bool" and type != "int" and type != "string" and\
+                type != "float" and type != "LF" and type != "GF" and type != "TF"):
+            exit(PARAMETER_ERR)
+        if(DEVEL == 1): print(f"[dev]: Argument created: {type} {value}")
         self.type = type
         self.value = value
 
@@ -159,7 +164,20 @@ class READ(Instruction):
         pass
 class WRITE(Instruction):
     def doOperation(self):
-        pass
+        if len(self.argumentList) != 1:
+            exit(PARAMETER_ERR)
+        elif self.argumentList[0].type == "var":
+            print(self.context.getVariable(self.argumentList[0].value, end=''))
+        elif self.argumentList[0].type == "nil":
+            pass #TODO
+        elif self.argumentList[0].type == "bool":
+            if (self.argumentList[0].type == "true"):
+                print("true", end='')
+            else:
+                print("false", end='')
+        else:
+            print(self.argumentList[0].value, end='')
+            
 class LABEL(Instruction):
     def doOperation(self):
         pass
@@ -248,6 +266,9 @@ class InstructionFactory:
             return DRPINT(self.context)
         elif instruction == 'BREAK':
             return BREAK(self.context)
+        else:
+            print("ERR: Instruction not found")
+            exit(SYNTAX_ERR)
 
 class Parser:
     # constructor
@@ -260,6 +281,7 @@ class Parser:
         self.input = None
         self.rootList = None # list of root elements(Instructions)
         self.instructionNum = 0 
+        self.lastInstructionnumber = 0 # order number of tha latest instruction to catch duplicits
         self.instructionFactory = InstructionFactory(Context())
 
     # print usage
@@ -276,6 +298,7 @@ class Parser:
             print("ERR: Invalid parameter")
             exit(PARAMETER_ERR)
         # open file
+        if(DEVEL):print(f'[dev]: opening file ... {argExploded[1]}')
         try:
             file = open(argExploded[1], 'r')
         except FileNotFoundError:
@@ -315,11 +338,15 @@ class Parser:
             print(f"Error parsing well-formed XML: {e}")
             exit(XML_SYNTAX_ERR)
         
+        #order the instructions by their order attribute
+        self.rootList = sorted(self.rootList, key=lambda child: int(child.attrib['order']))
+        
     # parses XML element (with closing tag) and creates instruction/argument object
     def parseXMLElement(self, element):
         attributes = {}
         if element.tag == 'instruction':
             attributes["opcode"] = element.attrib['opcode']
+            attributes["order"] = element.attrib['order']
             return ("instruction", attributes)
         elif element.tag in ['arg1', 'arg2', 'arg3']:
             attributes["type"] = element.attrib['type']
@@ -346,6 +373,7 @@ class Parser:
     def getInstruction(self):
         if self.instructionNum >= len(self.rootList):
             return None
+        
         #parse XML element
         rootElement = self.rootList[self.instructionNum]
         elementData = self.parseXMLElement(rootElement)
@@ -353,7 +381,8 @@ class Parser:
         #root must be instruction
         element_type, elementData = elementData
         if element_type == "instruction":
-            instruction = self._createInstruction(elementData['opcode'])
+            instruction = self._createInstruction(elementData)
+            
             # get arguments
             self.getArguments(rootElement,instruction)
             return instruction
@@ -361,13 +390,22 @@ class Parser:
             print("ERR: Unknown root element encountered:")
             exit(XML_SYNTAX_ERR)
         
-
-    def _createInstruction(self, instruction):
+    # creates instruction object
+    # checks if the order of the instructions is correct
+    def _createInstruction(self, instructiontData):
         if(DEVEL):print('[dev]: creating instruction ... ')
         self.instructionNum += 1
-        return self.instructionFactory.createInstruction(instruction)
+        # check if the order of the instructions is correct and if there are no duplicit orders
+        if self.lastInstructionnumber >= int(instructiontData['order']):
+            print("ERR: Invalid order of instructions")
+            exit(XML_SYNTAX_STRUCTURE_ERR)
+        else:
+            self.lastInstructionnumber = int(instructiontData['order'])
+
+        return self.instructionFactory.createInstruction(instructiontData['opcode'])
         
 
+    # creates argument object
     def _createArgument(self, type, value):
         if(DEVEL):print('[dev]: creating Argument ... ')
         return Argument(type, value)
@@ -380,6 +418,7 @@ def main():
         instruction = parser.getInstruction()
         if instruction is None:
             break
+        instruction.doOperation()
 
 if __name__ == '__main__':
     main()
