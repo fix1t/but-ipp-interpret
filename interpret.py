@@ -151,7 +151,28 @@ class Context:
         else:
             if(DEVEL == 1): print(f"[dev]: Variable {variable} is not defined 3")
             exit(RUNTIME_VARIABLE_ERR)
+    
+    def getSymbValue(self,symbol):
+        if symbol.type == "var":
+            return self.getVariablesValue(symbol.value)
+        else:
+            return symbol.value
+        
+    def getSymbType(self,symbol):
+        if symbol.type == "var":
+            value = self.getVariablesValue(symbol.value)
+            if value == 'nil':
+                return 'nil'
+            elif value == 'true' or value == 'false':
+                return 'bool'
+            elif value.isdigit():
+                return 'int'
+            else:
+                return 'string'
+        else:
+            return symbol.type
             
+                
     def createFrame(self):
         self.temporaryFrame = {}
         
@@ -393,12 +414,32 @@ class LT(Instruction):
 class GT(Instruction):
     def doOperation(self):
         pass
-class EQE(Instruction):
+class EQ(Instruction):
     def doOperation(self):
         pass
 class AND(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(3)
+        saveTo = self.getArgument("arg1")
+        symb1 = self.getArgument("arg2")
+        symb2 = self.getArgument("arg3")
+        # get types
+        symb1Type = self.context.getSymbType(symb1)
+        symb2Type = self.context.getSymbType(symb2)
+        # compare types
+        if symb1Type != symb2Type or symb1Type != "bool" or symb2Type != "bool":
+            exit(RUNTIME_OPERAND_TYPE_ERR)
+        # get value
+        symb1 = self.context.getSymbValue(symb1)
+        symb2 = self.context.getSymbValue(symb2)
+        # evaluate value
+        if symb1 == "true" and symb2 == "true":
+            result = "true"
+        else:
+            result = "false"
+        
+        self.context.updateVariable(saveTo.value, result)
+        
 class OR(Instruction):
     def doOperation(self):
         pass
@@ -426,6 +467,18 @@ class INT2CHAR(Instruction):
             exit(RUNTIME_WRONG_OPERAND_VALUE_ERR)
         
 class STRI2INT(Instruction):
+    def doOperation(self):
+        pass
+class CONCAT(Instruction):
+    def doOperation(self):
+        pass
+class STRLEN(Instruction):
+    def doOperation(self):
+        pass
+class GETCHAR(Instruction):
+    def doOperation(self):
+        pass
+class SETCHAR(Instruction):
     def doOperation(self):
         pass
 class READ(Instruction):
@@ -625,8 +678,8 @@ class InstructionFactory:
             return LT(self.context)
         elif instruction == 'GT':
             return GT(self.context)
-        elif instruction == 'EQE':
-            return EQE(self.context)
+        elif instruction == 'EQ':
+            return EQ(self.context)
         elif instruction == 'AND':
             return AND(self.context)
         elif instruction == 'OR':
@@ -639,6 +692,16 @@ class InstructionFactory:
             return STRI2INT(self.context)
         elif instruction == 'READ':
             return READ(self.context, self.getInput())
+        elif instruction == 'WRITE':
+            return WRITE(self.context)
+        elif instruction == 'CONCAT':
+            return CONCAT(self.context)
+        elif instruction == 'STRLEN':
+            return STRLEN(self.context)
+        elif instruction == 'GETCHAR':
+            return GETCHAR(self.context)
+        elif instruction == 'SETCHAR':
+            return SETCHAR(self.context)
         elif instruction == 'WRITE':
             return WRITE(self.context)
         elif instruction == 'LABEL':
