@@ -32,6 +32,7 @@ class Context:
         self.temporaryFrame = None
         self.labels = {}
         self.stack = []
+        self.functionCallStack = [] #
         self.instructionIndex = 0 
         self.parser = None
         
@@ -203,7 +204,17 @@ class Instruction():
         pass
     
     def addArgument(self,argument):
-        self.argumentList[argument.tag] =argument
+        if argument.tag in self.argumentList:
+            if DEVEL == 1: print(f"[dev]: Argument {argument.tag} is already defined")
+            exit(XML_SYNTAX_STRUCTURE_ERR)
+        self.argumentList[argument.tag] = argument
+    
+    def getArgument(self,tag):
+        if tag in self.argumentList:
+            return self.argumentList[tag]
+        else:
+            if(DEVEL == 1): print(f"[dev]: Argument {tag} is not defined")
+            exit(XML_SYNTAX_STRUCTURE_ERR)
         
     def __repr__(self):
         return f"<instruction({type(self).__name__})>"
@@ -211,8 +222,8 @@ class Instruction():
 class MOVE(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(2)
-        variable = self.argumentList["arg1"]
-        symbol = self.argumentList["arg2"]
+        variable = self.getArgument("arg1")
+        symbol = self.getArgument("arg2")
         if symbol.type == "var":
             varValue = self.context.getVariablesValue(symbol.value)
             self.context.updateVariable(variable.value, varValue)
@@ -236,26 +247,26 @@ class POPFRAME(Instruction):
 class DEFVAR(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(1)
-        self.context.createVariable(self.argumentList["arg1"].value)
+        self.context.createVariable(self.getArgument("arg1").value)
 class CALL(Instruction):
     def doOperation(self):
-        pass
+        
 class RETURN(Instruction):
     def doOperation(self):
         pass
 class PUSHS(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(1)
-        if self.argumentList["arg1"].type == "var":
-            varValue = self.context.getVariablesValue(self.argumentList["arg1"].value)
+        if self.getArgument("arg1").type == "var":
+            varValue = self.context.getVariablesValue(self.getArgument("arg1").value)
             self.context.pushStack(varValue)
         else:
-            self.context.pushStack(self.argumentList["arg1"].value)
+            self.context.pushStack(self.getArgument("arg1").value)
         
 class POPS(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(1)
-        var = self.argumentList["arg1"]
+        var = self.getArgument("arg1")
         if var.type == "var" and self.context.isDefined(var.value):
             poppedValue = self.context.popStack()
             self.context.updateVariable(var.value, poppedValue)
@@ -263,9 +274,9 @@ class POPS(Instruction):
 class ADD(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(3)
-        saveTo = self.argumentList["arg1"]
-        symb1 = self.argumentList["arg2"]
-        symb2 = self.argumentList["arg3"]
+        saveTo = self.getArgument("arg1")
+        symb1 = self.getArgument("arg2")
+        symb2 = self.getArgument("arg3")
         value1 = self.context.getSymbValue(symb1)
         value2 = self.context.getSymbValue(symb2)
         try:
@@ -282,9 +293,9 @@ class ADD(Instruction):
 class SUB(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(3)
-        saveTo = self.argumentList["arg1"]
-        symb1 = self.argumentList["arg2"]
-        symb2 = self.argumentList["arg3"]
+        saveTo = self.getArgument("arg1")
+        symb1 = self.getArgument("arg2")
+        symb2 = self.getArgument("arg3")
         value1 = self.context.getSymbValue(symb1)
         value2 = self.context.getSymbValue(symb2)
         try:
@@ -301,9 +312,9 @@ class SUB(Instruction):
 class MUL(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(3)
-        saveTo = self.argumentList["arg1"]
-        symb1 = self.argumentList["arg2"]
-        symb2 = self.argumentList["arg3"]
+        saveTo = self.getArgument("arg1")
+        symb1 = self.getArgument("arg2")
+        symb2 = self.getArgument("arg3")
         value1 = self.context.getSymbValue(symb1)
         value2 = self.context.getSymbValue(symb2)
         try:
@@ -320,9 +331,9 @@ class MUL(Instruction):
 class IDIV(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(3)
-        saveTo = self.argumentList["arg1"]
-        symb1 = self.argumentList["arg2"]
-        symb2 = self.argumentList["arg3"]
+        saveTo = self.getArgument("arg1")
+        symb1 = self.getArgument("arg2")
+        symb2 = self.getArgument("arg3")
         value1 = self.context.getSymbValue(symb1)
         value2 = self.context.getSymbValue(symb2)
         try:
@@ -361,8 +372,8 @@ class NOT(Instruction):
 class INT2CHAR(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(2)
-        var = self.argumentList["arg1"]
-        symbol = self.argumentList["arg2"]
+        var = self.getArgument("arg1")
+        symbol = self.getArgument("arg2")
         # confirm that first argument is variable
         if var.type == "var" and self.context.isDefined(var.value):
             # if second argument is variable, get its value
@@ -384,8 +395,8 @@ class STRI2INT(Instruction):
 class READ(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(2)
-        var = self.argumentList["arg1"].value
-        wantedType = self.argumentList["arg2"].value
+        var = self.getArgument("arg1").value
+        wantedType = self.getArgument("arg2").value
         # read line from input
         line = self.input.readline()
         line = line.rstrip('\n')
@@ -399,7 +410,7 @@ class READ(Instruction):
             line = int(line)
         elif wantedType == "string":
             pass
-        self.context.updateVariable(self.argumentList["arg1"].value, line)
+        self.context.updateVariable(self.getArgument("arg1").value, line)
     
 class WRITE(Instruction):
     # search for escape sequences and replace them with their values
@@ -416,31 +427,31 @@ class WRITE(Instruction):
     
     def doOperation(self):
         self.checkNumberofArguments(1)
-        if self.argumentList["arg1"].type == "var":
-            print(self.context.getVariablesValue(self.argumentList["arg1"].value), end='')
+        if self.getArgument("arg1").type == "var":
+            print(self.context.getVariablesValue(self.getArgument("arg1").value), end='')
             
-        elif self.argumentList["arg1"].type == "nil":
+        elif self.getArgument("arg1").type == "nil":
             pass #TODO
         
-        elif self.argumentList["arg1"].type == "bool":
-            if (self.argumentList["arg1"].type == "true"):
+        elif self.getArgument("arg1").type == "bool":
+            if (self.getArgument("arg1").type == "true"):
                 print("true", end='')
             else:
                 print("false", end='')
         else:
-            text = self.argumentList["arg1"].value
+            text = self.getArgument("arg1").value
             text = self.decode_decimal_escape(text)
             print(text, end='')
             
 class LABEL(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(1)
-        self.context.addLabel(str(self.argumentList["arg1"].value), self.context.getInstructionIndex())
+        self.context.addLabel(str(self.getArgument("arg1").value), self.context.getInstructionIndex())
         
 class JUMP(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(1)
-        expectedLabel = self.argumentList["arg1"].value
+        expectedLabel = self.getArgument("arg1").value
         position = self.context.getLabelPosition(expectedLabel)
         # look for label in instructions going forward
         if position == None:
@@ -452,9 +463,9 @@ class JUMP(Instruction):
 class JUMPIFEQ(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(3)
-        expectedLabel = self.argumentList["arg1"].value
-        symb1 = self.argumentList["arg2"]
-        symb2 = self.argumentList["arg3"]
+        expectedLabel = self.getArgument("arg1").value
+        symb1 = self.getArgument("arg2")
+        symb2 = self.getArgument("arg3")
         
         value1 = self.context.getSymbValue(symb1)
         value2 = self.context.getSymbValue(symb2)
@@ -473,9 +484,9 @@ class JUMPIFEQ(Instruction):
 class JUMPIFNEQ(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(3)
-        expectedLabel = self.argumentList["arg1"].value
-        symb1 = self.argumentList["arg2"]
-        symb2 = self.argumentList["arg3"]
+        expectedLabel = self.getArgument("arg1").value
+        symb1 = self.getArgument("arg2")
+        symb2 = self.getArgument("arg3")
         
         value1 = self.context.getSymbValue(symb1)
         value2 = self.context.getSymbValue(symb2)
@@ -493,13 +504,14 @@ class JUMPIFNEQ(Instruction):
 class EXIT(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(1)
-        if self.argumentList["arg1"].type == "int" and int(self.argumentList["arg1"].value) < 50:
-            exit(int(self.argumentList["arg1"].value))
+        if self.getArgument("arg1").type == "int" and int(self.getArgument("arg1").value) < 50:
+            exit(int(self.getArgument("arg1").value))
         else:
             exit(RUNTIME_WRONG_OPERAND_VALUE_ERR)
+    
 class DPRINT(Instruction):
     def doOperation(self):
-        print(self.argumentList["arg1"].value, end='',file=sys.stderr)
+        print(self.getArgument("arg1").value, end='',file=sys.stderr)
 class BREAK(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(0)
@@ -507,8 +519,8 @@ class BREAK(Instruction):
 class TYPE(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(2)
-        var = self.argumentList["arg1"]
-        symb = self.argumentList["arg2"]
+        var = self.getArgument("arg1")
+        symb = self.getArgument("arg2")
         # first argument must be variable
         if var.type == "var":
             # if symbol is variable
@@ -679,22 +691,38 @@ class Parser:
         
         self.instructionFactory.setInput(self.input)
         #order the instructions by their order attribute
-        self.rootList = sorted(self.rootList, key=lambda child: int(child.attrib['order']))
-        
+        try:
+            self.rootList = sorted(self.rootList, key=lambda child: int(child.attrib['order']))
+        except :
+            if DEVEL: print("ERR: Instruction attribute order error")
+            exit(XML_SYNTAX_STRUCTURE_ERR)
+            
+            
     def closeStream(self):
         self.input.close()
         
     # parses XML element (with closing tag) and creates instruction/argument object
     def parseXMLElement(self, element):
         attributes = {}
+        # check if the element is an instruction
         if element.tag == 'instruction':
-            attributes["opcode"] = element.attrib['opcode']
-            attributes["order"] = element.attrib['order']
+            try:
+                attributes["opcode"] = element.attrib['opcode']
+                attributes["order"] = element.attrib['order']
+            except KeyError:
+                if(DEVEL):print(f'[dev]: {element.tag} element is missing attribute')
+                exit(XML_SYNTAX_STRUCTURE_ERR)
             return ("instruction", attributes)
+        
+        # check if the element is an argument
         elif element.tag in ['arg1', 'arg2', 'arg3']:
-            attributes["tag"] = element.tag 
-            attributes["type"] = element.attrib['type']
-            attributes["content"] = element.text
+            try:
+                attributes["tag"] = element.tag 
+                attributes["type"] = element.attrib['type']
+                attributes["content"] = element.text
+            except KeyError:
+                if(DEVEL):print(f'[dev]: {element.tag} element is missing attribute')
+                exit(XML_SYNTAX_STRUCTURE_ERR)
             return ("argument", attributes)
         else:
             exit(XML_SYNTAX_STRUCTURE_ERR)
