@@ -661,7 +661,7 @@ class Parser:
         self.rootList = None # list of root elements(Instructions)
         self.context = context
         self.lastInstructionnumber = 0 # order number of tha latest instruction to catch duplicits
-        self.instructionFactory = InstructionFactory(self, context)
+        self.instructionFactory = InstructionFactory( context)
 
     # print usage
     def usage(self):
