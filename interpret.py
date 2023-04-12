@@ -35,7 +35,7 @@ class Context:
         self.parser = None
         
     def __repr__(self):
-        return f"<context(localFrame={self.localFrame}, globalFrame={self.globalFrame}, temporaryFrame={self.temporaryFrame})>"
+        return f"<context(instructionIndex={self.instructionIndex}, localFrame={self.localFrame}, globalFrame={self.globalFrame}, temporaryFrame={self.temporaryFrame})>"
     
     def jumpForward(self, label):
         while self.parser.getNextLabel() == True:
@@ -410,6 +410,7 @@ class JUMPIFNEQ(Instruction):
                 self.context.jumpForward(expectedLabel)
             else:
                 self.context.setInstructionIndex(position)
+            
 class EXIT(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(1)
@@ -422,7 +423,8 @@ class DPRINT(Instruction):
         print(self.argumentList["arg1"].value, end='',file=sys.stderr)
 class BREAK(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(0)
+        print(self.context,end='',file=sys.stderr)
 class TYPE(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(2)
