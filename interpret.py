@@ -268,20 +268,78 @@ class ADD(Instruction):
         symb2 = self.argumentList["arg3"]
         value1 = self.context.getSymbValue(symb1)
         value2 = self.context.getSymbValue(symb2)
-        result = int(value1) + int(value2)
+        try:
+            result = int(value1) + int(value2)
+        except ValueError:
+            # value is not int
+            if (DEVEL): print(f"ERR: wrong operand type for ADD")
+            exit(RUNTIME_OPERAND_TYPE_ERR)
+            
         if (DEVEL): print(f"[dev]: ADD {value1} + {value2} = {result}")
         if saveTo.type == "var" and self.context.isDefined(saveTo.value):
             self.context.updateVariable(saveTo.value, result)
         
 class SUB(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(3)
+        saveTo = self.argumentList["arg1"]
+        symb1 = self.argumentList["arg2"]
+        symb2 = self.argumentList["arg3"]
+        value1 = self.context.getSymbValue(symb1)
+        value2 = self.context.getSymbValue(symb2)
+        try:
+            result = int(value1) - int(value2)
+        except ValueError:
+            # value is not int
+            if (DEVEL): print(f"ERR: wrong operand type for SUB")
+            exit(RUNTIME_OPERAND_TYPE_ERR)
+        
+        if (DEVEL): print(f"[dev]: SUB {value1} - {value2} = {result}")
+        if saveTo.type == "var" and self.context.isDefined(saveTo.value):
+            self.context.updateVariable(saveTo.value, result)
+            
 class MUL(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(3)
+        saveTo = self.argumentList["arg1"]
+        symb1 = self.argumentList["arg2"]
+        symb2 = self.argumentList["arg3"]
+        value1 = self.context.getSymbValue(symb1)
+        value2 = self.context.getSymbValue(symb2)
+        try:
+            result = int(value1) * int(value2)
+        except ValueError:
+            # value is not int
+            if (DEVEL): print(f"ERR: wrong operand type for MUL")
+            exit(RUNTIME_OPERAND_TYPE_ERR)
+        
+        if (DEVEL): print(f"[dev]: MUL {value1} * {value2} = {result}")
+        if saveTo.type == "var" and self.context.isDefined(saveTo.value):
+            self.context.updateVariable(saveTo.value, result)
+            
 class IDIV(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(3)
+        saveTo = self.argumentList["arg1"]
+        symb1 = self.argumentList["arg2"]
+        symb2 = self.argumentList["arg3"]
+        value1 = self.context.getSymbValue(symb1)
+        value2 = self.context.getSymbValue(symb2)
+        try:
+            result = int(value1) // int(value2)
+        except ValueError:
+            # value is not int
+            if (DEVEL): print(f"ERR: wrong operand type for IDIV")
+            exit(RUNTIME_OPERAND_TYPE_ERR)
+        except ZeroDivisionError:
+            # division by zero
+            if (DEVEL): print(f"ERR: division by zero")
+            exit(RUNTIME_DIVISION_BY_ZERO_ERR)
+        
+        if (DEVEL): print(f"[dev]: IDIV {value1} / {value2} = {result}")
+        if saveTo.type == "var" and self.context.isDefined(saveTo.value):
+            self.context.updateVariable(saveTo.value, result)
+            
 class LT(Instruction):
     def doOperation(self):
         pass
