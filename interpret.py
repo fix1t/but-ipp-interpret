@@ -1,6 +1,6 @@
 import sys #arguments
+import re #regex
 import xml.etree.ElementTree as ET #xml parsing
-import ast
 
 SYNTAX_ERR = -1
 PARAMETER_ERR = 10
@@ -295,6 +295,18 @@ class READ(Instruction):
         self.context.updateVariable(self.argumentList["arg1"].value, line)
     
 class WRITE(Instruction):
+    # search for escape sequences and replace them with their values
+    def decode_decimal_escape(self,text):
+        
+        # converts decimal escape sequence to character
+        def replace_decimal_escape(match):
+            decimal_value = int(match.group(1))
+            return chr(decimal_value)
+
+        # replaces decimal escape sequences in the input text
+        result = re.sub(r'\\(\d{3})', replace_decimal_escape, text)
+        return result
+    
     def doOperation(self):
         self.checkNumberofArguments(1)
         if self.argumentList["arg1"].type == "var":
@@ -310,10 +322,8 @@ class WRITE(Instruction):
                 print("false", end='')
         else:
             text = self.argumentList["arg1"].value
+            text = self.decode_decimal_escape(text)
             print(text, end='')
-            
-
-            # Use literal_eval to interpret the escape sequence
             
 class LABEL(Instruction):
     def doOperation(self):
