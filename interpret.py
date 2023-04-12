@@ -32,12 +32,21 @@ class Context:
         self.temporaryFrame = None
         self.labels = {}
         self.stack = []
-        self.functionCallStack = [] #
+        self.returnAddressStack = [] 
         self.instructionIndex = 0 
         self.parser = None
         
     def __repr__(self):
         return f"<context(instructionIndex={self.instructionIndex}, localFrame={self.localFrameHead}, globalFrame={self.globalFrame}, temporaryFrame={self.temporaryFrame})>"
+    
+    def pushAddressStack(self, address):
+        self.returnAddressStack.append(address)
+        
+    def popAddressStack(self):
+        if len(self.returnAddressStack) == 0:
+            if(DEVEL == 1): print(f"[dev]: Address stack is empty")
+            exit(RUNTIME_MISSING_VALUE_ERR)
+        return self.returnAddressStack.pop()
     
     def jumpForward(self, label):
         while self.parser.getNextLabel() == True:
@@ -77,7 +86,7 @@ class Context:
             if(DEVEL == 1): print(f"[dev]: Label {label} is not defined")
             return None
     
-    def pushStack(self,value):
+    def pushDataStack(self,value):
         self.stack.append(value)
         
     def popStack(self):
@@ -250,18 +259,37 @@ class DEFVAR(Instruction):
         self.context.createVariable(self.getArgument("arg1").value)
 class CALL(Instruction):
     def doOperation(self):
+        self.checkNumberofArguments(1)
+        # push return address to stack
+        currentInstruction = self.context.getInstructionIndex()
+        self.context.pushAddressStack(currentInstruction)
         
+        # search for label
+        label = self.getArgument("arg1").value
+        position = self.context.getLabelPosition(label)
+        
+        # look for label in instructions going forward
+        if position == None:
+            self.context.jumpForward(label)
+        else:
+            # label found, go to instruction index
+            self.context.setInstructionIndex(position)
+
 class RETURN(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(0)
+        # pop return address from stack
+        returnAddress = self.context.popAddressStack()
+        self.context.setInstructionIndex(returnAddress)
+        
 class PUSHS(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(1)
         if self.getArgument("arg1").type == "var":
             varValue = self.context.getVariablesValue(self.getArgument("arg1").value)
-            self.context.pushStack(varValue)
+            self.context.pushDataStack(varValue)
         else:
-            self.context.pushStack(self.getArgument("arg1").value)
+            self.context.pushDataStack(self.getArgument("arg1").value)
         
 class POPS(Instruction):
     def doOperation(self):
@@ -543,7 +571,7 @@ class TYPE(Instruction):
 # Factory method for instruction
 # Creates instruction class based on the input
 class InstructionFactory:
-    def __init__(self, parser,context):
+    def __init__(self, context):
         self.input = None
         self.context = context
         
