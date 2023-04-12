@@ -37,6 +37,17 @@ class Context:
     def __repr__(self):
         return f"<context(localFrame={self.localFrame}, globalFrame={self.globalFrame}, temporaryFrame={self.temporaryFrame})>"
     
+    def jumpForward(self, label):
+        while self.parser.getNextLabel() == True:
+            position = self.getLabelPosition(label)
+            # instruction found going forward 
+            # no set instruction index needed
+            if position != None:
+                return
+        # if label is not found, exit with error
+        if (DEVEL): print("Label not found")
+        exit(LABEL_ERR)
+    
     def setParser(self, parser):
         self.parser = parser
     
@@ -47,6 +58,7 @@ class Context:
         self.instructionIndex += 1
     
     def setInstructionIndex(self, index):
+        self.parser.lastInstructionnumber = 0
         self.instructionIndex = index
     
     def addLabel(self,label,position):
@@ -90,6 +102,12 @@ class Context:
             return True
         else:
             return False
+    
+    def getSymbValue(self,symbol):
+        if symbol.type == "var" and self.isDefined(symbol.value):
+            return self.getVariablesValue(symbol.value)
+        else:
+            return symbol.value
     
     def createVariable(self,variable):
         # check if variable is already defined
@@ -223,7 +241,17 @@ class POPS(Instruction):
         
 class ADD(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(3)
+        saveTo = self.argumentList["arg1"]
+        symb1 = self.argumentList["arg2"]
+        symb2 = self.argumentList["arg3"]
+        value1 = self.context.getSymbValue(symb1)
+        value2 = self.context.getSymbValue(symb2)
+        result = int(value1) + int(value2)
+        if (DEVEL): print(f"[dev]: ADD {value1} + {value2} = {result}")
+        if saveTo.type == "var" and self.context.isDefined(saveTo.value):
+            self.context.updateVariable(saveTo.value, result)
+        
 class SUB(Instruction):
     def doOperation(self):
         pass
@@ -335,30 +363,53 @@ class JUMP(Instruction):
         self.checkNumberofArguments(1)
         expectedLabel = self.argumentList["arg1"].value
         position = self.context.getLabelPosition(expectedLabel)
-        # look for label in instructions
+        # look for label in instructions going forward
         if position == None:
-            while self.context.getInstructionIndex() < len(self.context.parser.rootList):
-                # if any label is found, add it to labels
-                instruction = self.context.parser.getInstruction()
-                if  type(instruction).__name__ == "LABEL":
-                    # create label
-                    instruction.doOperation()
-                    position = self.context.getLabelPosition(expectedLabel)
-                    # check if label is found
-                    if position != None:
-                        return self.context.setInstructionIndex(position)
-            # if label is not found, exit with error
-            if (DEVEL): print("Label not found")
-            exit(LABEL_ERR)
+            self.context.jumpForward(expectedLabel)
         else:
+            # label found, set instruction index
             self.context.setInstructionIndex(position)
         
 class JUMPIFEQ(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(3)
+        expectedLabel = self.argumentList["arg1"].value
+        symb1 = self.argumentList["arg2"]
+        symb2 = self.argumentList["arg3"]
+        
+        value1 = self.context.getSymbValue(symb1)
+        value2 = self.context.getSymbValue(symb2)
+            
+        # check if values are equal
+        if str(value1) == str(value2):
+            # get label
+            position = self.context.getLabelPosition(expectedLabel)
+            if position == None:
+                # label not found, look for it in instructions going forward
+                self.context.jumpForward(expectedLabel)
+            else:
+                self.context.setInstructionIndex(position)
+        
+            
 class JUMPIFNEQ(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(3)
+        expectedLabel = self.argumentList["arg1"].value
+        symb1 = self.argumentList["arg2"]
+        symb2 = self.argumentList["arg3"]
+        
+        value1 = self.context.getSymbValue(symb1)
+        value2 = self.context.getSymbValue(symb2)
+            
+        # check if values are equal
+        if str(value1) != str(value2):
+            # get label
+            position = self.context.getLabelPosition(expectedLabel)
+            if position == None:
+                # label not found, look for it in instructions going forward
+                self.context.jumpForward(expectedLabel)
+            else:
+                self.context.setInstructionIndex(position)
 class EXIT(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(1)
@@ -579,6 +630,18 @@ class Parser:
                     instructionInstance.addArgument(argument)
                 else:
                     exit(XML_SYNTAX_ERR)
+                    
+    # searches for the next instruction LABEL in the source code
+    # return true if successful or false
+    def getNextLabel(self):
+        while self.context.getInstructionIndex() < len(self.rootList):
+            # if any label is found, add it to labels
+            instruction = self.getInstruction()
+            if  type(instruction).__name__ == "LABEL":
+                # create label 
+                instruction.doOperation()
+                return True
+        return False
     
     # returns instruction or argument object or none
     # expects correct syntax
@@ -605,7 +668,7 @@ class Parser:
     # creates instruction object
     # checks if the order of the instructions is correct
     def _createInstruction(self, instructiontData):
-        if(DEVEL):print(f'[dev]: creating instruction {instructiontData["opcode"]} ... ')
+        if(DEVEL):print(f'[dev]: {instructiontData["order"]} creating instruction {instructiontData["opcode"]} ... ')
         self.context.incrementInstructionIndex()
         # check if the order of the instructions is correct and if there are no duplicit orders
         if self.lastInstructionnumber >= int(instructiontData['order']):
