@@ -437,15 +437,50 @@ class AND(Instruction):
             result = "true"
         else:
             result = "false"
-        
+        # update variable
         self.context.updateVariable(saveTo.value, result)
         
 class OR(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(3)
+        saveTo = self.getArgument("arg1")
+        symb1 = self.getArgument("arg2")
+        symb2 = self.getArgument("arg3")
+        # get types
+        symb1Type = self.context.getSymbType(symb1)
+        symb2Type = self.context.getSymbType(symb2)
+        # compare types
+        if symb1Type != symb2Type or symb1Type != "bool" or symb2Type != "bool":
+            exit(RUNTIME_OPERAND_TYPE_ERR)
+        # get value
+        symb1 = self.context.getSymbValue(symb1)
+        symb2 = self.context.getSymbValue(symb2)
+        # evaluate value
+        if symb1 == "true" or symb2 == "true":
+            result = "true"
+        else:
+            result = "false"
+        # update variable
+        self.context.updateVariable(saveTo.value, result)
 class NOT(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(2)
+        saveTo = self.getArgument("arg1")
+        symb1 = self.getArgument("arg2")
+        # get type
+        symb1Type = self.context.getSymbType(symb1)
+        # check type
+        if symb1Type != "bool":
+            exit(RUNTIME_OPERAND_TYPE_ERR)
+        # get value
+        symb1 = self.context.getSymbValue(symb1)
+        # evaluate value
+        if symb1 == "true":
+            result = "false"
+        else:
+            result = "true"
+        # update variable
+        self.context.updateVariable(saveTo.value, result)
 class INT2CHAR(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(2)
