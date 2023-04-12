@@ -26,16 +26,17 @@ DEVEL = 0
 
 class Context:
     def __init__(self):
-        self.localFrame = {}
         self.globalFrame = {}
-        self.temporaryFrame = {}
+        self.localFrameStack = []
+        self.localFrameHead = None
+        self.temporaryFrame = None
         self.labels = {}
         self.stack = []
         self.instructionIndex = 0 
         self.parser = None
         
     def __repr__(self):
-        return f"<context(instructionIndex={self.instructionIndex}, localFrame={self.localFrame}, globalFrame={self.globalFrame}, temporaryFrame={self.temporaryFrame})>"
+        return f"<context(instructionIndex={self.instructionIndex}, localFrame={self.localFrameHead}, globalFrame={self.globalFrame}, temporaryFrame={self.temporaryFrame})>"
     
     def jumpForward(self, label):
         while self.parser.getNextLabel() == True:
@@ -139,25 +140,40 @@ class Context:
             exit(RUNTIME_VARIABLE_ERR)
             
     def createFrame(self):
-        self.temporaryFrame = []
+        self.temporaryFrame = {}
         
     def pushFrame(self):
-        self.localFrame = self.temporaryFrame
-        self.temporaryFrame = []
+        if self.temporaryFrame != None:
+            self.localFrameStack.append(self.localFrameHead)
+            self.localFrameHead = self.temporaryFrame
+            self.temporaryFrame = None
+        else:
+            # TF not defined
+            exit(RUNTIME_FRAME_ERR)
 
     def popFrame(self):
-        self.temporaryFrame = self.localFrame
-        self.localFrame = []
+        if self.localFrameHead != None:
+            self.temporaryFrame = self.localFrameHead
+            # pop LF
+            if len(self.localFrameStack) != 0:
+                self.localFrameHead = self.localFrameStack.pop()
+            else:
+                self.localFrameHead = None
+        else:
+            # LF not defined
+            exit(RUNTIME_FRAME_ERR)
         
     def getFrame(self,frame):
         if frame == "GF":
             return self.globalFrame
         elif frame == "LF":
-            return self.localFrame
+            if self.localFrameHead != None:
+                return self.localFrameHead
         elif frame == "TF":
-            return self.temporaryFrame
-        else:
-            exit(RUNTIME_FRAME_ERR)
+            if self.temporaryFrame != None:
+                return self.temporaryFrame
+        # frame not defined
+        exit(RUNTIME_FRAME_ERR)
 
 class Argument:
     def __init__(self, tag, type, value):
@@ -205,13 +221,18 @@ class MOVE(Instruction):
         
 class CREATEFRAME(Instruction):
     def doOperation(self):
-        pass
+        self.context.createFrame()
+        
 class PUSHFRAME(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(0)
+        self.context.pushFrame()
+        
 class POPFRAME(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(0)
+        self.context.popFrame()
+        
 class DEFVAR(Instruction):
     def doOperation(self):
         self.checkNumberofArguments(1)
