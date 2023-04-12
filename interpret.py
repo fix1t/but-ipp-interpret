@@ -22,7 +22,10 @@ RUNTIME_INTERNAL_ERR = 99
 
 EMPTY = ""
 
-DEVEL = 0
+if len(sys.argv) == 4 and sys.argv[3] == '--testerfester':
+    DEVEL = 1  
+else:
+    DEVEL = 0
 
 class Context:
     def __init__(self):
@@ -381,7 +384,12 @@ class IDIV(Instruction):
             
 class LT(Instruction):
     def doOperation(self):
-        pass
+        self.checkNumberofArguments(3)
+        saveTo = self.getArgument("arg1")
+        symb1 = self.getArgument("arg2")
+        symb2 = self.getArgument("arg3")        
+        # if one of the symbols is variable, get its value
+        
 class GT(Instruction):
     def doOperation(self):
         pass
@@ -455,14 +463,18 @@ class WRITE(Instruction):
     
     def doOperation(self):
         self.checkNumberofArguments(1)
+        # if argument is variable, get its value
         if self.getArgument("arg1").type == "var":
-            print(self.context.getVariablesValue(self.getArgument("arg1").value), end='')
-            
+            value = self.context.getVariablesValue(self.getArgument("arg1").value)
+            value = self.decode_decimal_escape(value)
+            # if value is nil, do nothing
+            if value != 'nil':
+                print(value, end='')
         elif self.getArgument("arg1").type == "nil":
             pass #TODO
         
         elif self.getArgument("arg1").type == "bool":
-            if (self.getArgument("arg1").type == "true"):
+            if (self.getArgument("arg1").value == "true"):
                 print("true", end='')
             else:
                 print("false", end='')
@@ -653,7 +665,9 @@ class Parser:
     # constructor
     def __init__(self,context):
         # check number of arguments
-        if not(len(sys.argv) == 2 or len(sys.argv) == 3):
+        if len(sys.argv) == 4 and sys.argv[3] == '--testerfester':
+            self.test = True 
+        elif not(len(sys.argv) == 2 or len(sys.argv) == 3):
             print("ERR: Invalid number of arguments")
             exit(PARAMETER_ERR)
         self.source = None
@@ -661,7 +675,7 @@ class Parser:
         self.rootList = None # list of root elements(Instructions)
         self.context = context
         self.lastInstructionnumber = 0 # order number of tha latest instruction to catch duplicits
-        self.instructionFactory = InstructionFactory(self, context)
+        self.instructionFactory = InstructionFactory( context)
 
     # print usage
     def usage(self):
@@ -709,7 +723,7 @@ class Parser:
             if(self.source == None):
                 self.source = sys.stdin.read()
             else:
-                self.input = sys.stdin.open()
+                self.input = sys.stdin
         # get the whole structure of the XML file
         try:
             self.rootList = ET.fromstring(self.source)
