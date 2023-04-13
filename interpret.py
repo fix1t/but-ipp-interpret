@@ -604,15 +604,60 @@ class STRI2INT(Instruction):
 class CONCAT(Instruction):
     def doOperation(self):
         if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
-        pass
+        self.checkNumberofArguments(3)
+        saveTo = self.getArgument("arg1")
+        symb1 = self.getArgument("arg2")
+        symb2 = self.getArgument("arg3")
+        # check if strings
+        symb1Type = self.context.getSymbType(symb1)
+        symb2Type = self.context.getSymbType(symb2)
+        if symb1Type != "string" or symb2Type != "string":
+            exit(RUNTIME_OPERAND_TYPE_ERR)
+        # get values
+        symb1 = self.context.getSymbValue(symb1)
+        symb2 = self.context.getSymbValue(symb2)
+        # concatenate & update variable
+        result = symb1 + symb2
+        self.context.updateVariable(saveTo.value, result)
+    
 class STRLEN(Instruction):
     def doOperation(self):
         if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
-        pass
+        self.checkNumberofArguments(2)
+        saveTo = self.getArgument("arg1")
+        symb1 = self.getArgument("arg2")
+        # get type
+        symb1Type = self.context.getSymbType(symb1)
+        if symb1Type != "string":
+            exit(RUNTIME_OPERAND_TYPE_ERR)
+        # get value
+        symb1 = self.context.getSymbValue(symb1)
+        # get length & update variable
+        result = len(symb1)
+        self.context.updateVariable(saveTo.value, str(result))
+        
 class GETCHAR(Instruction):
     def doOperation(self):
         if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
-        pass
+        self.checkNumberofArguments(3)
+        saveTo = self.getArgument("arg1")
+        symb1 = self.getArgument("arg2")
+        symb2 = self.getArgument("arg3")
+        # get types
+        symb1Type = self.context.getSymbType(symb1)
+        symb2Type = self.context.getSymbType(symb2)
+        if symb1Type != "string" or symb2Type != "int":
+            exit(RUNTIME_OPERAND_TYPE_ERR)  
+        # get character on index
+        try:
+            index = int(self.context.getSymbValue(symb2))
+            char = self.context.getSymbValue(symb1)[index]
+            # update variable with character's ASCII code
+            self.context.updateVariable(saveTo.value, char)
+        except:
+            if (DEVEL): print("ERR: Index out of range")
+            exit(RUNTIME_STRING_ERR)
+
 class SETCHAR(Instruction):
     def doOperation(self):
         if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
