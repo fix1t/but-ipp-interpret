@@ -155,11 +155,6 @@ class Context:
             if(DEVEL == 1): print(f"[dev]: Variable {variable} is not defined 3")
             exit(RUNTIME_VARIABLE_ERR)
     
-    def getSymbValue(self,symbol):
-        if symbol.type == "var":
-            return self.getVariablesValue(symbol.value)
-        else:
-            return symbol.value
         
     def getSymbType(self,symbol):
         if symbol.type == "var":
@@ -170,6 +165,8 @@ class Context:
                 return 'bool'
             elif value.isdigit():
                 return 'int'
+            elif value == EMPTY:
+                return EMPTY
             else:
                 return 'string'
         else:
@@ -479,7 +476,7 @@ class EQ(Instruction):
         symb1Type = self.context.getSymbType(symb1)
         symb2Type = self.context.getSymbType(symb2)
         # compare types
-        if symb1Type == "nil" or symb2Type == "nil":
+        if (symb1Type == "nil" or symb2Type == "nil") and symb1Type != symb2Type:
             return self.context.updateVariable(saveTo.value, "false")
         if symb1Type != symb2Type:
             exit(RUNTIME_OPERAND_TYPE_ERR)
@@ -723,7 +720,7 @@ class READ(Instruction):
     
 class WRITE(Instruction):
     # search for escape sequences and replace them with their values
-    def decode_decimal_escape(self,text):
+    def decode_decimalEscape(self,text):
         
         # converts decimal escape sequence to character
         def replace_decimal_escape(match):
@@ -742,7 +739,7 @@ class WRITE(Instruction):
         symbType = self.context.getSymbType(symb)
         
         if symbType == "string":
-            symbValue = self.decode_decimal_escape(symbValue)
+            symbValue = self.decode_decimalEscape(symbValue)
         elif symbType == "nil":
             symbValue = ''
         print(symbValue, end='')
@@ -859,23 +856,8 @@ class TYPE(Instruction):
         self.checkNumberofArguments(2)
         var = self.getArgument("arg1")
         symb = self.getArgument("arg2")
-        # first argument must be variable
-        if var.type == "var":
-            # if symbol is variable
-            if symb.type == "var":
-                # not initialized variable
-                if self.context.getVariablesValue(symb.value) == "":
-                    return self.context.updateVariable(var.value, "")
-                # initialized variable, get its type
-                else:
-                    dataType = type(symb.value).__name__
-                    if(dataType == "str"):
-                        dataType = "string"
-                    return self.context.updateVariable(var.value, dataType)
-            else:
-                return self.context.updateVariable(var.value, symb.type)
-        else:
-            exit(RUNTIME_WRONG_OPERAND_VALUE_ERR)
+        symbType = self.context.getSymbType(symb)
+        self.context.updateVariable(var.value,symbType)
                   
 
 # Factory method for instruction
@@ -1081,11 +1063,11 @@ class Parser:
     def getArguments(self,instructionElement,instructionInstance):
         if instructionElement.findall("./*") is not None:
             for argument in instructionElement.findall('./*'):
-                element_data = self.parseXMLElement(argument)
-                element_type, element_data = element_data
-                if element_type == "argument":
+                elementData = self.parseXMLElement(argument)
+                elementType, elementData = elementData
+                if elementType == "argument":
                     # create argument object
-                    argument = self._createArgument(element_data["tag"],element_data["type"], element_data["content"])
+                    argument = self._createArgument(elementData["tag"],elementData["type"], elementData["content"])
                     instructionInstance.addArgument(argument)
                 else:
                     exit(XML_SYNTAX_ERR)
@@ -1113,8 +1095,8 @@ class Parser:
         elementData = self.parseXMLElement(rootElement)
         
         #root must be instruction
-        element_type, elementData = elementData
-        if element_type == "instruction":
+        elementType, elementData = elementData
+        if elementType == "instruction":
             instruction = self._createInstruction(elementData)
             
             # get arguments
