@@ -479,7 +479,7 @@ class EQ(Instruction):
         symb1Type = self.context.getSymbType(symb1)
         symb2Type = self.context.getSymbType(symb2)
         # compare types
-        if (symb1Type == "nil" or symb2Type == "nil") and symb1Type != symb2Type:
+        if symb1Type == "nil" or symb2Type == "nil":
             return self.context.updateVariable(saveTo.value, "false")
         if symb1Type != symb2Type:
             exit(RUNTIME_OPERAND_TYPE_ERR)
@@ -758,24 +758,35 @@ class JUMP(Instruction):
         
 class JUMPIFEQ(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
-        self.checkNumberofArguments(3)
-        expectedLabel = self.getArgument("arg1").value
-        symb1 = self.getArgument("arg2")
-        symb2 = self.getArgument("arg3")
-        
-        value1 = self.context.getSymbValue(symb1)
-        value2 = self.context.getSymbValue(symb2)
-            
-        # check if values are equal
-        if str(value1) == str(value2):
-            # get label
+        def makeJump(self, expectedLabel):
             position = self.context.getLabelPosition(expectedLabel)
             if position == None:
                 # label not found, look for it in instructions going forward
                 self.context.jumpForward(expectedLabel)
             else:
                 self.context.setInstructionIndex(position)
+        
+        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        self.checkNumberofArguments(3)
+        expectedLabel = self.getArgument("arg1").value
+        symb1 = self.getArgument("arg2")
+        symb2 = self.getArgument("arg3")
+        # get types
+        symb1Type = self.context.getSymbType(symb1)
+        symb2Type = self.context.getSymbType(symb2)
+        # compare types
+        if symb1Type == "nil" or symb2Type == "nil":
+            # if one of the operands is nil jump
+            return makeJump(self,expectedLabel)
+        elif symb1Type != symb2Type:
+            exit(RUNTIME_OPERAND_TYPE_ERR)
+        
+        value1 = self.context.getSymbValue(symb1)
+        value2 = self.context.getSymbValue(symb2)
+            
+        # check if values are equal
+        if str(value1) == str(value2):
+            makeJump(self,expectedLabel)
         
             
 class JUMPIFNEQ(Instruction):
