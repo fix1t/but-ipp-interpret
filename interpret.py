@@ -565,22 +565,20 @@ class INT2CHAR(Instruction):
     def doOperation(self):
         if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(2)
-        var = self.getArgument("arg1")
-        symbol = self.getArgument("arg2")
-        # confirm that first argument is variable
-        if var.type == "var" and self.context.isDefined(var.value):
-            # if second argument is variable, get its value
-            if symbol.type == "var" and self.context.isDefined(symbol.value):
-                value = self.context.getVariablesValue(symbol.value)
-            else:
-                value = symbol.value
-            try:
-                value = int(value)
-                self.context.updateVariable(var.value, chr(value))
-            except :
-                exit(RUNTIME_WRONG_OPERAND_VALUE_ERR)
-        else:
-            exit(RUNTIME_WRONG_OPERAND_VALUE_ERR)
+        saveTo = self.getArgument("arg1")
+        symb1 = self.getArgument("arg2")
+        # get type
+        symb1Type = self.context.getSymbType(symb1)
+        if symb1Type != "int":
+            exit(RUNTIME_OPERAND_TYPE_ERR)  
+        # get value
+        symb1 = self.context.getSymbValue(symb1)
+        try:
+            char = chr(int(symb1))
+            self.context.updateVariable(saveTo.value, char)
+        except:
+            if (DEVEL): print("ERR: Index out of range")
+            exit(RUNTIME_STRING_ERR)
         
 class STRI2INT(Instruction):
     def doOperation(self):
@@ -803,24 +801,35 @@ class JUMPIFEQ(Instruction):
             
 class JUMPIFNEQ(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
-        self.checkNumberofArguments(3)
-        expectedLabel = self.getArgument("arg1").value
-        symb1 = self.getArgument("arg2")
-        symb2 = self.getArgument("arg3")
-        
-        value1 = self.context.getSymbValue(symb1)
-        value2 = self.context.getSymbValue(symb2)
-            
-        # check if values are equal
-        if str(value1) != str(value2):
-            # get label
+        def makeJump(self, expectedLabel):
             position = self.context.getLabelPosition(expectedLabel)
             if position == None:
                 # label not found, look for it in instructions going forward
                 self.context.jumpForward(expectedLabel)
             else:
                 self.context.setInstructionIndex(position)
+        
+        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        self.checkNumberofArguments(3)
+        expectedLabel = self.getArgument("arg1").value
+        symb1 = self.getArgument("arg2")
+        symb2 = self.getArgument("arg3")
+        # get types
+        symb1Type = self.context.getSymbType(symb1)
+        symb2Type = self.context.getSymbType(symb2)
+        # compare types
+        if symb1Type == "nil" or symb2Type == "nil":
+            # if one of the operands is nil jump
+            return makeJump(self,expectedLabel)
+        elif symb1Type != symb2Type:
+            exit(RUNTIME_OPERAND_TYPE_ERR)
+        
+        value1 = self.context.getSymbValue(symb1)
+        value2 = self.context.getSymbValue(symb2)
+            
+        # check if values are equal
+        if str(value1) != str(value2):
+            makeJump(self,expectedLabel)
             
 class EXIT(Instruction):
     def doOperation(self):
