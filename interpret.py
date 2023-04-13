@@ -147,7 +147,10 @@ class Context:
         if self.isDefined(variable):
             frame , variable = self.splitVariable(variable)
             frame = self.getFrame(frame)
-            return frame[variable]
+            if (frame[variable] == "None"):
+                return EMPTY
+            else:
+                return frame[variable]
         else:
             if(DEVEL == 1): print(f"[dev]: Variable {variable} is not defined 3")
             exit(RUNTIME_VARIABLE_ERR)
@@ -351,7 +354,7 @@ class ADD(Instruction):
             
         if (DEVEL): print(f"[dev]: ADD {value1} + {value2} = {result}")
         if saveTo.type == "var" and self.context.isDefined(saveTo.value):
-            self.context.updateVariable(saveTo.value, result)
+            self.context.updateVariable(saveTo.value, str(result))
         
 class SUB(Instruction):
     def doOperation(self):
@@ -371,7 +374,7 @@ class SUB(Instruction):
         
         if (DEVEL): print(f"[dev]: SUB {value1} - {value2} = {result}")
         if saveTo.type == "var" and self.context.isDefined(saveTo.value):
-            self.context.updateVariable(saveTo.value, result)
+            self.context.updateVariable(saveTo.value, str(result))
             
 class MUL(Instruction):
     def doOperation(self):
@@ -391,7 +394,7 @@ class MUL(Instruction):
         
         if (DEVEL): print(f"[dev]: MUL {value1} * {value2} = {result}")
         if saveTo.type == "var" and self.context.isDefined(saveTo.value):
-            self.context.updateVariable(saveTo.value, result)
+            self.context.updateVariable(saveTo.value, str(result))
             
 class IDIV(Instruction):
     def doOperation(self):
@@ -415,7 +418,7 @@ class IDIV(Instruction):
         
         if (DEVEL): print(f"[dev]: IDIV {value1} / {value2} = {result}")
         if saveTo.type == "var" and self.context.isDefined(saveTo.value):
-            self.context.updateVariable(saveTo.value, result)
+            self.context.updateVariable(saveTo.value, str(result))
             
 class LT(Instruction):
     def doOperation(self):
@@ -439,7 +442,7 @@ class LT(Instruction):
         else:
             result = "false"
         # update variable
-        self.context.updateVariable(saveTo.value, result)
+        self.context.updateVariable(saveTo.value, str(result))
         
 class GT(Instruction):
     def doOperation(self):
@@ -463,7 +466,7 @@ class GT(Instruction):
         else:
             result = "false"
         # update variable
-        self.context.updateVariable(saveTo.value, result)
+        self.context.updateVariable(saveTo.value, str(result))
         
 class EQ(Instruction):
     def doOperation(self):
@@ -489,7 +492,7 @@ class EQ(Instruction):
         else:
             result = "false"
         # update variable
-        self.context.updateVariable(saveTo.value, result)
+        self.context.updateVariable(saveTo.value, str(result))
         
 class AND(Instruction):
     def doOperation(self):
@@ -513,7 +516,7 @@ class AND(Instruction):
         else:
             result = "false"
         # update variable
-        self.context.updateVariable(saveTo.value, result)
+        self.context.updateVariable(saveTo.value, str(result))
         
 class OR(Instruction):
     def doOperation(self):
@@ -537,7 +540,7 @@ class OR(Instruction):
         else:
             result = "false"
         # update variable
-        self.context.updateVariable(saveTo.value, result)
+        self.context.updateVariable(saveTo.value, str(result))
 class NOT(Instruction):
     def doOperation(self):
         if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
@@ -557,7 +560,7 @@ class NOT(Instruction):
         else:
             result = "true"
         # update variable
-        self.context.updateVariable(saveTo.value, result)
+        self.context.updateVariable(saveTo.value, str(result))
 class INT2CHAR(Instruction):
     def doOperation(self):
         if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
@@ -618,7 +621,7 @@ class CONCAT(Instruction):
         symb2 = self.context.getSymbValue(symb2)
         # concatenate & update variable
         result = symb1 + symb2
-        self.context.updateVariable(saveTo.value, result)
+        self.context.updateVariable(saveTo.value, str(result))
     
 class STRLEN(Instruction):
     def doOperation(self):
@@ -671,16 +674,21 @@ class SETCHAR(Instruction):
         symb2Type = self.context.getSymbType(symb2)
         if varType != 'string' or symb1Type != "int" or symb2Type != "string":
             exit(RUNTIME_OPERAND_TYPE_ERR)
-        # update char on index in variable
-        try:
-            index = int(self.context.getSymbValue(symb1))
-            char = self.context.getSymbValue(symb2)[0]
-            string = self.context.getVariablesValue(var.value)
-            string[index] = char
-            self.context.updateVariable(var.value, string)
-        except:
-            if (DEVEL): print("ERR: Index out of range")
+            
+        index = int(self.context.getSymbValue(symb1))
+        string = self.context.getVariablesValue(var.value)
+        # conditions, if empty string
+        if self.context.getSymbValue(symb2) == EMPTY:
             exit(RUNTIME_STRING_ERR)
+        # if index out of range            
+        if index < 0 or index > len(string):
+            exit(RUNTIME_STRING_ERR)
+        # replace char on index
+        char = self.context.getSymbValue(symb2)[0]
+        string = string[:index] + char + string[index+1:]
+        #update variable
+        self.context.updateVariable(var.value, string)
+        
                 
 class READ(Instruction):
     def doOperation(self):
@@ -804,6 +812,7 @@ class DPRINT(Instruction):
     def doOperation(self):
         if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
         print(self.getArgument("arg1").value, end='',file=sys.stderr)
+        
 class BREAK(Instruction):
     def doOperation(self):
         if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
