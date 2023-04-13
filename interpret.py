@@ -803,10 +803,13 @@ class EXIT(Instruction):
     def doOperation(self):
         if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(1)
-        if self.getArgument("arg1").type == "int" and int(self.getArgument("arg1").value) < 50:
-            exit(int(self.getArgument("arg1").value))
+        if self.getArgument("arg1").type == "int":
+            if int(self.getArgument("arg1").value) >= 0 and int(self.getArgument("arg1").value) <= 49:
+                exit(int(self.getArgument("arg1").value))
+            else:
+                exit(RUNTIME_WRONG_OPERAND_VALUE_ERR)
         else:
-            exit(RUNTIME_WRONG_OPERAND_VALUE_ERR)
+            exit(RUNTIME_OPERAND_TYPE_ERR)
     
 class DPRINT(Instruction):
     def doOperation(self):
