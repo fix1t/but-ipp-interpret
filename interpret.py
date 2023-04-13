@@ -694,21 +694,33 @@ class READ(Instruction):
     def doOperation(self):
         if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(2)
-        var = self.getArgument("arg1").value
-        wantedType = self.getArgument("arg2").value
+        var = self.getArgument("arg1")
+        typeArg = self.getArgument("arg2")
+        # check if wanted type is valid
+        typeArgType = self.context.getSymbType(typeArg)
+        if typeArgType != "type":
+            exit(XML_SYNTAX_STRUCTURE_ERR)
+        wantedType = self.context.getSymbValue(typeArg)
         # read line from input
         line = self.input.readline()
         line = line.rstrip('\n')
         # convert to wanted type
         if wantedType == "bool":
-            if line.lower == "true":
-                line = "true"
-            elif line.lower == "false":
-                line = "false"
+            line = line.lower()
+            if line != "true" and line != "false":
+                line = EMPTY
         elif wantedType == "int":
-            line = int(line)
+            if not line.isdigit():
+                line = EMPTY
+        elif wantedType == "nil":
+            if line.lower == "nil":
+                line = "nil"
+            else:
+                line = EMPTY
         elif wantedType == "string":
             pass
+        else:
+            exit(XML_SYNTAX_STRUCTURE_ERR)
         self.context.updateVariable(self.getArgument("arg1").value, line)
     
 class WRITE(Instruction):
