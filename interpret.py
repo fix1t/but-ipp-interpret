@@ -130,8 +130,8 @@ class Context:
             frame = self.getFrame(frame)
             frame[variable] = EMPTY
         else:
-            if(DEVEL == 1): print(f"[dev]: Variable {variable} is not defined 1")
-            exit(RUNTIME_VARIABLE_ERR)
+            if(DEVEL == 1): print(f"[dev]: Variable {variable} was already defined 1")
+            exit(MULTIPLE_DEFINITION_ERR)
                 
     def updateVariable(self,variable,value):
         if self.isDefined(variable):
@@ -661,7 +661,27 @@ class GETCHAR(Instruction):
 class SETCHAR(Instruction):
     def doOperation(self):
         if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
-        pass
+        self.checkNumberofArguments(3)
+        var = self.getArgument("arg1")
+        symb1 = self.getArgument("arg2")
+        symb2 = self.getArgument("arg3")
+        # get types
+        varType = self.context.getSymbType(var)
+        symb1Type = self.context.getSymbType(symb1)
+        symb2Type = self.context.getSymbType(symb2)
+        if varType != 'string' or symb1Type != "int" or symb2Type != "string":
+            exit(RUNTIME_OPERAND_TYPE_ERR)
+        # update char on index in variable
+        try:
+            index = int(self.context.getSymbValue(symb1))
+            char = self.context.getSymbValue(symb2)[0]
+            string = self.context.getVariablesValue(var.value)
+            string[index] = char
+            self.context.updateVariable(var.value, string)
+        except:
+            if (DEVEL): print("ERR: Index out of range")
+            exit(RUNTIME_STRING_ERR)
+                
 class READ(Instruction):
     def doOperation(self):
         if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
@@ -1078,7 +1098,7 @@ class Parser:
     # creates argument object
     def _createArgument(self, tag, type, value):
         if(DEVEL):print('[dev]: \t\tcreating Argument ... ')
-        return Argument(tag, type, value)
+        return Argument(tag, type, str(value))
         
 
 def main():
