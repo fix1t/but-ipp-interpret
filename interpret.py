@@ -49,21 +49,7 @@ class Context:
             if(DEVEL == 1): print(f"\t\t[dev]: Address stack is empty")
             exit(RUNTIME_MISSING_VALUE_ERR)
         return self.returnAddressStack.pop()
-    
-    def jumpForward(self, label):
-        while self.parser.getNextLabel() == True:
-            position = self.getLabelPosition(label)
-            # instruction found going forward 
-            # no set instruction index needed
-            if position != None:
-                return
-        # if label is not found, exit with error
-        if (DEVEL): print("Label not found")
-        exit(LABEL_ERR)
-    
-    def setParser(self, parser):
-        self.parser = parser
-    
+        
     def getInstructionIndex(self):
         return self.instructionIndex
     
@@ -121,12 +107,6 @@ class Context:
         else:
             return False
     
-    def getSymbValue(self,symbol):
-        if symbol.type == "var" and self.isDefined(symbol.value):
-            return self.getVariablesValue(symbol.value)
-        else:
-            return symbol.value
-    
     def createVariable(self,variable):
         # check if variable is already defined
         if self.isDefined(variable) == False:
@@ -156,6 +136,11 @@ class Context:
             if(DEVEL == 1): print(f"\t\t[dev]: Variable {variable} is not defined 3")
             exit(RUNTIME_VARIABLE_ERR)
     
+    def getSymbValue(self,symbol):
+        if symbol.type == "var" and self.isDefined(symbol.value):
+            return self.getVariablesValue(symbol.value)
+        else:
+            return symbol.value
         
     def getSymbType(self,symbol):
         if symbol.type == "var":
@@ -209,13 +194,23 @@ class Context:
                 return self.temporaryFrame
         # frame not defined
         exit(RUNTIME_FRAME_ERR)
+        
+    def setParser(self, parser):
+        self.parser = parser
+            
+    def jumpForward(self, label):
+        while self.parser.getNextLabel() == True:
+            position = self.getLabelPosition(label)
+            # instruction found going forward 
+            # no set instruction index needed
+            if position != None:
+                return
+        # if label is not found, exit with error
+        if (DEVEL): print("Label not found")
+        exit(LABEL_ERR)
 
 class Argument:
     def __init__(self, tag, type, value):
-        if(type != "var" and type != "symb" and type != "label" and type != "type" and\
-            type != "nil" and type != "bool" and type != "int" and type != "string" and\
-                type != "float" and type != "LF" and type != "GF" and type != "TF"):
-            exit(PARAMETER_ERR)
         if(DEVEL == 1): print(f"\t\t[dev]: Argument created:{tag} {type} {value}")
         self.tag = tag
         self.type = type
