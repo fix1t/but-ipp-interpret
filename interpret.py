@@ -19,7 +19,6 @@ RUNTIME_WRONG_RETURN_VALUE_ERR = 57
 RUNTIME_WRONG_OPERAND_VALUE_ERR = 57
 RUNTIME_STRING_ERR = 58
 RUNTIME_INTERNAL_ERR = 99
-
 EMPTY = ""
 
 if len(sys.argv) == 4 and sys.argv[3] == '--testerfester':
@@ -47,7 +46,7 @@ class Context:
         
     def popAddressStack(self):
         if len(self.returnAddressStack) == 0:
-            if(DEVEL == 1): print(f"[dev]: Address stack is empty")
+            if(DEVEL == 1): print(f"\t\t[dev]: Address stack is empty")
             exit(RUNTIME_MISSING_VALUE_ERR)
         return self.returnAddressStack.pop()
     
@@ -76,17 +75,22 @@ class Context:
         self.instructionIndex = index
     
     def addLabel(self,label,position):
+        if(DEVEL): print(f"\t\t[dev]: Adding label {label} to position {position} ...")
         if label not in self.labels:
             self.labels[label] = position
+            if(DEVEL): print(f"\t\t[dev]: Label {label} added to position {position}")
         else:
-            if(DEVEL == 1): print(f"[dev]: Label {label} is already defined")
+            # label already defined but, check if the position is the same
+            if self.labels[label] == position:
+                return
+            if(DEVEL): print(f"\t\t[dev]: Label {label} is already defined")
             exit(MULTIPLE_DEFINITION_ERR)
             
     def getLabelPosition(self,label):
         if label in self.labels:
             return self.labels[label]
         else:
-            if(DEVEL == 1): print(f"[dev]: Label {label} is not defined")
+            if(DEVEL): print(f"\t\t[dev]: Label {label} is not defined")
             return None
     
     def pushDataStack(self,value):
@@ -94,7 +98,7 @@ class Context:
         
     def popStack(self):
         if len(self.stack) == 0:
-            if(DEVEL == 1): print(f"[dev]: Stack is empty")
+            if(DEVEL == 1): print(f"\t\t[dev]: Stack is empty")
             exit(RUNTIME_MISSING_VALUE_ERR)
         return self.stack.pop()
     
@@ -106,8 +110,8 @@ class Context:
         elif variable[0] == "T" and variable[1] == "F":
             return "TF", variable[3:]
         else:
-            if(DEVEL == 1): print(f"[dev]: Variable {variable} is not defined")
-            exit(RUNTIME_VARIABLE_ERR)
+            if(DEVEL == 1): print(f"\t\t[dev]: Variable {variable} is not defined")
+            exit(SEMANTIC_ERR)
         
     def isDefined(self,variable):
         frame , variable = self.splitVariable(variable)
@@ -130,7 +134,7 @@ class Context:
             frame = self.getFrame(frame)
             frame[variable] = EMPTY
         else:
-            if(DEVEL == 1): print(f"[dev]: Variable {variable} was already defined 1")
+            if(DEVEL == 1): print(f"\t\t[dev]: Variable {variable} was already defined 1")
             exit(MULTIPLE_DEFINITION_ERR)
                 
     def updateVariable(self,variable,value):
@@ -140,33 +144,30 @@ class Context:
             frame[variable] = value
             return True
         else:
-            if(DEVEL == 1): print(f"[dev]: Variable {variable} is not defined 2")
+            if(DEVEL == 1): print(f"\t\t[dev]: Variable {variable} is not defined 2")
             exit(RUNTIME_VARIABLE_ERR)
             
     def getVariablesValue(self,variable):
         if self.isDefined(variable):
             frame , variable = self.splitVariable(variable)
             frame = self.getFrame(frame)
-            if (frame[variable] == "None"):
-                return EMPTY
-            else:
-                return frame[variable]
+            return frame[variable]
         else:
-            if(DEVEL == 1): print(f"[dev]: Variable {variable} is not defined 3")
+            if(DEVEL == 1): print(f"\t\t[dev]: Variable {variable} is not defined 3")
             exit(RUNTIME_VARIABLE_ERR)
     
         
     def getSymbType(self,symbol):
         if symbol.type == "var":
             value = self.getVariablesValue(symbol.value)
-            if value == 'nil':
+            if value == None:
                 return 'nil'
             elif value == 'true' or value == 'false':
                 return 'bool'
             elif value.isdigit():
                 return 'int'
             elif value == EMPTY:
-                return EMPTY
+                return None
             else:
                 return 'string'
         else:
@@ -215,7 +216,7 @@ class Argument:
             type != "nil" and type != "bool" and type != "int" and type != "string" and\
                 type != "float" and type != "LF" and type != "GF" and type != "TF"):
             exit(PARAMETER_ERR)
-        if(DEVEL == 1): print(f"[dev]: Argument created:{tag} {type} {value}")
+        if(DEVEL == 1): print(f"\t\t[dev]: Argument created:{tag} {type} {value}")
         self.tag = tag
         self.type = type
         self.value = value
@@ -238,7 +239,7 @@ class Instruction():
     
     def addArgument(self,argument):
         if argument.tag in self.argumentList:
-            if DEVEL == 1: print(f"[dev]: Argument {argument.tag} is already defined")
+            if DEVEL == 1: print(f"\t\t[dev]: Argument {argument.tag} is already defined")
             exit(XML_SYNTAX_STRUCTURE_ERR)
         self.argumentList[argument.tag] = argument
     
@@ -246,7 +247,7 @@ class Instruction():
         if tag in self.argumentList:
             return self.argumentList[tag]
         else:
-            if(DEVEL == 1): print(f"[dev]: Argument {tag} is not defined")
+            if(DEVEL == 1): print(f"\t\t[dev]: Argument {tag} is not defined")
             exit(XML_SYNTAX_STRUCTURE_ERR)
         
     def __repr__(self):
@@ -254,7 +255,7 @@ class Instruction():
 
 class MOVE(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(2)
         variable = self.getArgument("arg1")
         symbol = self.getArgument("arg2")
@@ -266,30 +267,30 @@ class MOVE(Instruction):
         
 class CREATEFRAME(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.context.createFrame()
         
 class PUSHFRAME(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(0)
         self.context.pushFrame()
         
 class POPFRAME(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(0)
         self.context.popFrame()
         
 class DEFVAR(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(1)
         self.context.createVariable(self.getArgument("arg1").value)
         
 class CALL(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(1)
         # push return address to stack
         currentInstruction = self.context.getInstructionIndex()
@@ -308,7 +309,7 @@ class CALL(Instruction):
 
 class RETURN(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(0)
         # pop return address from stack
         returnAddress = self.context.popAddressStack()
@@ -316,7 +317,7 @@ class RETURN(Instruction):
         
 class PUSHS(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(1)
         if self.getArgument("arg1").type == "var":
             varValue = self.context.getVariablesValue(self.getArgument("arg1").value)
@@ -326,7 +327,7 @@ class PUSHS(Instruction):
         
 class POPS(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(1)
         var = self.getArgument("arg1")
         if var.type == "var" and self.context.isDefined(var.value):
@@ -335,7 +336,7 @@ class POPS(Instruction):
         
 class ADD(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(3)
         saveTo = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -344,18 +345,21 @@ class ADD(Instruction):
         value2 = self.context.getSymbValue(symb2)
         try:
             result = int(value1) + int(value2)
+        except TypeError:
+            if (DEVEL): print(f"ERR: wrong operand type for ADD")
+            exit(RUNTIME_OPERAND_TYPE_ERR)
         except ValueError:
             # value is not int
             if (DEVEL): print(f"ERR: wrong operand type for ADD")
             exit(RUNTIME_OPERAND_TYPE_ERR)
             
-        if (DEVEL): print(f"[dev]: ADD {value1} + {value2} = {result}")
+        if (DEVEL): print(f"\t\t[dev]: ADD {value1} + {value2} = {result}")
         if saveTo.type == "var" and self.context.isDefined(saveTo.value):
             self.context.updateVariable(saveTo.value, str(result))
         
 class SUB(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(3)
         saveTo = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -364,18 +368,21 @@ class SUB(Instruction):
         value2 = self.context.getSymbValue(symb2)
         try:
             result = int(value1) - int(value2)
+        except TypeError:
+            if (DEVEL): print(f"ERR: wrong operand type for ADD")
+            exit(RUNTIME_OPERAND_TYPE_ERR)
         except ValueError:
             # value is not int
             if (DEVEL): print(f"ERR: wrong operand type for SUB")
             exit(RUNTIME_OPERAND_TYPE_ERR)
         
-        if (DEVEL): print(f"[dev]: SUB {value1} - {value2} = {result}")
+        if (DEVEL): print(f"\t\t[dev]: SUB {value1} - {value2} = {result}")
         if saveTo.type == "var" and self.context.isDefined(saveTo.value):
             self.context.updateVariable(saveTo.value, str(result))
             
 class MUL(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(3)
         saveTo = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -384,18 +391,21 @@ class MUL(Instruction):
         value2 = self.context.getSymbValue(symb2)
         try:
             result = int(value1) * int(value2)
+        except TypeError:
+            if (DEVEL): print(f"ERR: wrong operand type for ADD")
+            exit(RUNTIME_OPERAND_TYPE_ERR)
         except ValueError:
             # value is not int
             if (DEVEL): print(f"ERR: wrong operand type for MUL")
             exit(RUNTIME_OPERAND_TYPE_ERR)
         
-        if (DEVEL): print(f"[dev]: MUL {value1} * {value2} = {result}")
+        if (DEVEL): print(f"\t\t[dev]: MUL {value1} * {value2} = {result}")
         if saveTo.type == "var" and self.context.isDefined(saveTo.value):
             self.context.updateVariable(saveTo.value, str(result))
             
 class IDIV(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(3)
         saveTo = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -404,6 +414,9 @@ class IDIV(Instruction):
         value2 = self.context.getSymbValue(symb2)
         try:
             result = int(value1) // int(value2)
+        except TypeError:
+            if (DEVEL): print(f"ERR: wrong operand type for ADD")
+            exit(RUNTIME_OPERAND_TYPE_ERR)
         except ValueError:
             # value is not int
             if (DEVEL): print(f"ERR: wrong operand type for IDIV")
@@ -413,13 +426,13 @@ class IDIV(Instruction):
             if (DEVEL): print(f"ERR: division by zero")
             exit(RUNTIME_DIVISION_BY_ZERO_ERR)
         
-        if (DEVEL): print(f"[dev]: IDIV {value1} / {value2} = {result}")
+        if (DEVEL): print(f"\t\t[dev]: IDIV {value1} / {value2} = {result}")
         if saveTo.type == "var" and self.context.isDefined(saveTo.value):
             self.context.updateVariable(saveTo.value, str(result))
             
 class LT(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(3)
         saveTo = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -433,17 +446,31 @@ class LT(Instruction):
         # get value
         symb1 = self.context.getSymbValue(symb1)
         symb2 = self.context.getSymbValue(symb2)
+        
+        # bool to int
+        if symb1Type == "bool":
+            if symb1 == "true":
+                symb1 = 1
+            else:
+                symb1 = 0
+            if symb2 == "true":
+                symb2 = 1
+            else:
+                symb2 = 0
+        
         # evaluate value
         if symb1 < symb2:
+            if (DEVEL): print(f"\t\t[dev]: LT {symb1} < {symb2} = true")
             result = "true"
         else:
+            if (DEVEL): print(f"\t\t[dev]: LT {symb1} < {symb2} = false")
             result = "false"
         # update variable
         self.context.updateVariable(saveTo.value, str(result))
         
 class GT(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(3)
         saveTo = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -457,17 +484,29 @@ class GT(Instruction):
         # get value
         symb1 = self.context.getSymbValue(symb1)
         symb2 = self.context.getSymbValue(symb2)
+        # bool to int
+        if symb1Type == "bool":
+            if symb1 == "true":
+                symb1 = 1
+            else:
+                symb1 = 0
+            if symb2 == "true":
+                symb2 = 1
+            else:
+                symb2 = 0
         # evaluate value
         if symb1 > symb2:
+            if (DEVEL): print(f"\t\t[dev]: GT {symb1} > {symb2} = true")
             result = "true"
         else:
+            if (DEVEL): print(f"\t\t[dev]: GT {symb1} > {symb2} = false")
             result = "false"
         # update variable
         self.context.updateVariable(saveTo.value, str(result))
         
 class EQ(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(3)
         saveTo = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -475,25 +514,28 @@ class EQ(Instruction):
         # get types
         symb1Type = self.context.getSymbType(symb1)
         symb2Type = self.context.getSymbType(symb2)
-        # compare types
-        if (symb1Type == "nil" or symb2Type == "nil") and symb1Type != symb2Type:
-            return self.context.updateVariable(saveTo.value, "false")
-        if symb1Type != symb2Type:
-            exit(RUNTIME_OPERAND_TYPE_ERR)
         # get value
         symb1 = self.context.getSymbValue(symb1)
         symb2 = self.context.getSymbValue(symb2)
+        # compare types
+        if (symb1 == None or symb2 == None) and symb1Type != symb2Type:
+            return self.context.updateVariable(saveTo.value, "false")
+        if symb1Type != symb2Type:
+            exit(RUNTIME_OPERAND_TYPE_ERR)
+
         # evaluate value
         if str(symb1) == str(symb2):
+            if (DEVEL): print(f"\t\t[dev]: EQ {symb1} == {symb2} = true")
             result = "true"
         else:
+            if (DEVEL): print(f"\t\t[dev]: EQ {symb1} == {symb2} = false")
             result = "false"
         # update variable
         self.context.updateVariable(saveTo.value, str(result))
         
 class AND(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(3)
         saveTo = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -517,7 +559,7 @@ class AND(Instruction):
         
 class OR(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(3)
         saveTo = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -540,7 +582,7 @@ class OR(Instruction):
         self.context.updateVariable(saveTo.value, str(result))
 class NOT(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(2)
         saveTo = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -560,7 +602,7 @@ class NOT(Instruction):
         self.context.updateVariable(saveTo.value, str(result))
 class INT2CHAR(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(2)
         saveTo = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -579,7 +621,7 @@ class INT2CHAR(Instruction):
         
 class STRI2INT(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(3)
         saveTo = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -601,7 +643,7 @@ class STRI2INT(Instruction):
         
 class CONCAT(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(3)
         saveTo = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -620,7 +662,7 @@ class CONCAT(Instruction):
     
 class STRLEN(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(2)
         saveTo = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -636,7 +678,7 @@ class STRLEN(Instruction):
         
 class GETCHAR(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(3)
         saveTo = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -658,7 +700,7 @@ class GETCHAR(Instruction):
 
 class SETCHAR(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(3)
         var = self.getArgument("arg1")
         symb1 = self.getArgument("arg2")
@@ -673,7 +715,7 @@ class SETCHAR(Instruction):
         index = int(self.context.getSymbValue(symb1))
         string = self.context.getVariablesValue(var.value)
         # conditions, if empty string
-        if self.context.getSymbValue(symb2) == EMPTY:
+        if self.context.getSymbValue(symb2) == None:
             exit(RUNTIME_STRING_ERR)
         # if index out of range            
         if index < 0 or index > len(string):
@@ -687,7 +729,7 @@ class SETCHAR(Instruction):
                 
 class READ(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(2)
         var = self.getArgument("arg1")
         typeArg = self.getArgument("arg2")
@@ -697,8 +739,7 @@ class READ(Instruction):
             exit(XML_SYNTAX_STRUCTURE_ERR)
         wantedType = self.context.getSymbValue(typeArg)
         # read line from input
-        line = self.input.readline()
-        line = line.rstrip('\n')
+        line = self.input.readline().strip()
         # convert to wanted type
         if wantedType == "bool":
             line = line.lower()
@@ -709,7 +750,7 @@ class READ(Instruction):
                 line = EMPTY
         elif wantedType == "nil":
             if line.lower == "nil":
-                line = "nil"
+                line = None
             else:
                 line = EMPTY
         elif wantedType == "string":
@@ -732,7 +773,7 @@ class WRITE(Instruction):
         return result
     
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(1)
         symb = self.getArgument("arg1")
         symbValue = self.context.getSymbValue(symb)
@@ -740,19 +781,18 @@ class WRITE(Instruction):
         
         if symbType == "string":
             symbValue = self.decode_decimalEscape(symbValue)
-        elif symbType == "nil":
-            symbValue = ''
-        print(symbValue, end='')
+        if symbValue != None:
+            print(symbValue, end='')
             
 class LABEL(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(1)
         self.context.addLabel(str(self.getArgument("arg1").value), self.context.getInstructionIndex())
         
 class JUMP(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(1)
         expectedLabel = self.getArgument("arg1").value
         position = self.context.getLabelPosition(expectedLabel)
@@ -770,26 +810,29 @@ class JUMPIFEQ(Instruction):
             if position == None:
                 # label not found, look for it in instructions going forward
                 self.context.jumpForward(expectedLabel)
+                if(DEVEL):print(f'\t\t[dev]: Jumping forward to label {expectedLabel}')
             else:
                 self.context.setInstructionIndex(position)
+                if(DEVEL):print(f'\t\t[dev]: Jumping back to label {expectedLabel}')
         
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(3)
         expectedLabel = self.getArgument("arg1").value
         symb1 = self.getArgument("arg2")
         symb2 = self.getArgument("arg3")
-        # get types
+        # get types and value
         symb1Type = self.context.getSymbType(symb1)
         symb2Type = self.context.getSymbType(symb2)
+        value1 = self.context.getSymbValue(symb1)
+        value2 = self.context.getSymbValue(symb2)
         # compare types
-        if symb1Type == "nil" or symb2Type == "nil":
+        if value1 == None or value2 == None:
             # if one of the operands is nil jump
             return makeJump(self,expectedLabel)
         elif symb1Type != symb2Type:
+            if (DEVEL):print(f'\t\t[dev]: {symb1Type} AND {symb2Type} operands are not of the same type')
             exit(RUNTIME_OPERAND_TYPE_ERR)
-        
-        value1 = self.context.getSymbValue(symb1)
-        value2 = self.context.getSymbValue(symb2)
             
         # check if values are equal
         if str(value1) == str(value2):
@@ -806,7 +849,7 @@ class JUMPIFNEQ(Instruction):
             else:
                 self.context.setInstructionIndex(position)
         
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(3)
         expectedLabel = self.getArgument("arg1").value
         symb1 = self.getArgument("arg2")
@@ -815,22 +858,23 @@ class JUMPIFNEQ(Instruction):
         symb1Type = self.context.getSymbType(symb1)
         symb2Type = self.context.getSymbType(symb2)
         # compare types
-        if symb1Type == "nil" or symb2Type == "nil":
+        value1 = self.context.getSymbValue(symb1)
+        value2 = self.context.getSymbValue(symb2)
+        
+        # compare types
+        if value1 == None or value2 == None:
             # if one of the operands is nil jump
             return makeJump(self,expectedLabel)
         elif symb1Type != symb2Type:
             exit(RUNTIME_OPERAND_TYPE_ERR)
-        
-        value1 = self.context.getSymbValue(symb1)
-        value2 = self.context.getSymbValue(symb2)
-            
+                    
         # check if values are equal
         if str(value1) != str(value2):
             makeJump(self,expectedLabel)
             
 class EXIT(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(1)
         if self.getArgument("arg1").type == "int":
             if int(self.getArgument("arg1").value) >= 0 and int(self.getArgument("arg1").value) <= 49:
@@ -842,17 +886,17 @@ class EXIT(Instruction):
     
 class DPRINT(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         print(self.getArgument("arg1").value, end='',file=sys.stderr)
         
 class BREAK(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(0)
         print(self.context,end='',file=sys.stderr)
 class TYPE(Instruction):
     def doOperation(self):
-        if (DEVEL):print(f'[dev]: {type(self).__name__} instruction in process...')
+        if (DEVEL):print(f'\t\t[dev]: {type(self).__name__} instruction in process...')
         self.checkNumberofArguments(2)
         var = self.getArgument("arg1")
         symb = self.getArgument("arg2")
@@ -981,7 +1025,7 @@ class Parser:
             print("ERR: Invalid parameter")
             exit(PARAMETER_ERR)
         # open file
-        if(DEVEL):print(f'[dev]: opening file ... {argExploded[1]}')
+        if(DEVEL):print(f'\t\t[dev]: opening file ... {argExploded[1]}')
         try:
             file = open(argExploded[1], 'r')
         except FileNotFoundError:
@@ -990,11 +1034,11 @@ class Parser:
             
         # assign file to stream
         if(argExploded[0] == '--source' and self.source == None):
-            if(DEVEL):print('[dev]: setting up source filestream ... ')
+            if(DEVEL):print('\t\t[dev]: setting up source filestream ... ')
             self.source = file.read()
             file.close()
         elif(argExploded[0] == '--input' and self.input == None): 
-            if(DEVEL):print('[dev]: setting up input filestream ... ')
+            if(DEVEL):print('\t\t[dev]: setting up input filestream ... ')
             self.input = file
         else:
             print("ERR: Invalid parameter. 1")
@@ -1007,6 +1051,7 @@ class Parser:
         # number of arguments checked in the init
         self.parseArgument(sys.argv[1])
         if(len(sys.argv) == 3):
+            # every file was specified
             self.parseArgument(sys.argv[2])
         else:
             # if no input/source file is specified, read from stdin
@@ -1029,7 +1074,6 @@ class Parser:
             if DEVEL: print("ERR: Instruction attribute order error")
             exit(XML_SYNTAX_STRUCTURE_ERR)
             
-            
     def closeStream(self):
         self.input.close()
         
@@ -1042,7 +1086,7 @@ class Parser:
                 attributes["opcode"] = element.attrib['opcode']
                 attributes["order"] = element.attrib['order']
             except KeyError:
-                if(DEVEL):print(f'[dev]: {element.tag} element is missing attribute')
+                if(DEVEL):print(f'\t\t[dev]: {element.tag} element is missing attribute')
                 exit(XML_SYNTAX_STRUCTURE_ERR)
             return ("instruction", attributes)
         
@@ -1053,7 +1097,7 @@ class Parser:
                 attributes["type"] = element.attrib['type']
                 attributes["content"] = element.text
             except KeyError:
-                if(DEVEL):print(f'[dev]: {element.tag} element is missing attribute')
+                if(DEVEL):print(f'\t\t[dev]: {element.tag} element is missing attribute')
                 exit(XML_SYNTAX_STRUCTURE_ERR)
             return ("argument", attributes)
         else:
@@ -1063,13 +1107,13 @@ class Parser:
     def getArguments(self,instructionElement,instructionInstance):
         if instructionElement.findall("./*") is not None:
             for argument in instructionElement.findall('./*'):
-                elementData = self.parseXMLElement(argument)
-                elementType, elementData = elementData
+                elementType, elementData = self.parseXMLElement(argument)
                 if elementType == "argument":
                     # create argument object
                     argument = self._createArgument(elementData["tag"],elementData["type"], elementData["content"])
                     instructionInstance.addArgument(argument)
                 else:
+                    # if the element is not an argument, it is an error in the XML syntax
                     exit(XML_SYNTAX_ERR)
                     
     # searches for the next instruction LABEL in the source code
@@ -1109,7 +1153,7 @@ class Parser:
     # creates instruction object
     # checks if the order of the instructions is correct
     def _createInstruction(self, instructiontData):
-        if(DEVEL):print(f'[dev]: {instructiontData["order"]} creating instruction {instructiontData["opcode"]} ... ')
+        if(DEVEL):print(f'\t\t[dev]: {instructiontData["order"]} creating instruction {instructiontData["opcode"]} ... ')
         self.context.incrementInstructionIndex()
         # check if the order of the instructions is correct and if there are no duplicit orders
         if self.lastInstructionnumber >= int(instructiontData['order']):
@@ -1123,8 +1167,16 @@ class Parser:
 
     # creates argument object
     def _createArgument(self, tag, type, value):
-        if(DEVEL):print('[dev]: \t\tcreating Argument ... ')
-        return Argument(tag, type, str(value))
+        if value is not None:
+            value = value.strip()
+        else:
+            value = EMPTY
+        if(DEVEL):print('\t\t[dev]: \t\tcreating Argument ... ')
+        if(type == 'nil'):
+            # value of nil is represented as None
+            return Argument(tag, type, None)
+        else:
+            return Argument(tag, type, str(value))
         
 
 def main():
@@ -1134,6 +1186,7 @@ def main():
     parser.openStream()
     while True:
         instruction = parser.getInstruction()
+        # no more instructions
         if instruction is None:
             break
         instruction.doOperation()
